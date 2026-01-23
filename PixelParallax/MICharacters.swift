@@ -5,7 +5,7 @@ fileprivate struct NPCColors {
     static let hair = NSColor(calibratedRed: 0.4, green: 0.25, blue: 0.15, alpha: 1.0)
 }
 
-struct MIPixelCharacter {
+struct MIPixelCharacter: Sendable {
     var x: CGFloat
     var z: CGFloat
     var speed: CGFloat
@@ -16,6 +16,9 @@ struct MIPixelCharacter {
     var spriteIndex: Int
 }
 
+/// Gestisce i personaggi NPC animati sulla spiaggia
+/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
+@MainActor
 class MICharacters {
     
     private var npcs: [MIPixelCharacter] = []

@@ -1,7 +1,7 @@
 import Cocoa
 import ScreenSaver
 
-struct MIStar {
+struct MIStar: Sendable {
     var x: CGFloat
     var y: CGFloat
     var size: CGFloat
@@ -9,7 +9,7 @@ struct MIStar {
     var twinkleSpeed: CGFloat
 }
 
-struct MICloud {
+struct MICloud: Sendable {
     var x: CGFloat
     var y: CGFloat
     var width: CGFloat
@@ -17,6 +17,9 @@ struct MICloud {
     var speed: CGFloat
 }
 
+/// Gestisce il rendering del cielo, stelle, nuvole e elementi di sfondo
+/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
+@MainActor
 class MIBackground {
     
     private var stars: [MIStar] = []

@@ -1,6 +1,6 @@
 import Cocoa
 
-struct MIPalm {
+struct MIPalm: Sendable {
     var x: CGFloat
     var trunkHeight: CGFloat
     var swayPhase: CGFloat
@@ -9,7 +9,7 @@ struct MIPalm {
     var layer: Int
 }
 
-struct MIFirefly {
+struct MIFirefly: Sendable {
     var x: CGFloat
     var y: CGFloat
     var phase: CGFloat
@@ -18,7 +18,7 @@ struct MIFirefly {
     var wanderY: CGFloat = 0
 }
 
-struct MIParticle {
+struct MIParticle: Sendable {
     var x: CGFloat
     var y: CGFloat
     var vx: CGFloat
@@ -28,6 +28,9 @@ struct MIParticle {
     var type: Int
 }
 
+/// Gestisce scenari: palme, mare, nave, falò e particelle
+/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
+@MainActor
 class MIScenery {
     
     private var palms: [MIPalm] = []

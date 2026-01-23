@@ -333,7 +333,7 @@ import ScreenSaver
 
 // MARK: - Weather Module
 
-struct MIRainDrop {
+struct MIRainDrop: Sendable {
     var x: CGFloat
     var y: CGFloat
     var speed: CGFloat
@@ -341,13 +341,16 @@ struct MIRainDrop {
     var opacity: CGFloat
 }
 
-struct MIShootingStar {
+struct MIShootingStar: Sendable {
     var startPos: CGPoint
     var currentPos: CGPoint
     var vector: CGPoint
     var progress: CGFloat
 }
 
+/// Gestisce effetti meteo: pioggia e stelle cadenti
+/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
+@MainActor
 class MIWeather {
     
     private var drops: [MIRainDrop] = []

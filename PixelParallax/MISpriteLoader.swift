@@ -1,7 +1,7 @@
 import Cocoa
 import ScreenSaver
 
-/// Sprite loading helper for pixel art assets
+/// Thread-safe sprite loading helper for pixel art assets using Swift Actors
 /// 
 /// ## Come aggiungere nuovi sprite:
 /// 
@@ -17,14 +17,16 @@ import ScreenSaver
 /// - palm_small.png, palm_large.png per varianti
 /// - bonfire_1.png, bonfire_2.png, ... per animazione fuoco
 ///
-class MISpriteLoader {
-    
-    static let shared = MISpriteLoader()
+/// ## Thread Safety:
+/// Questo è un Actor, quindi tutte le operazioni sono automaticamente thread-safe.
+/// Usa `await` per accedere ai metodi o la versione sincrona per il main thread.
+///
+actor MISpriteLoaderActor {
     
     private var cachedImages: [String: CGImage] = [:]
     private let bundle: Bundle
     
-    private init() {
+    init() {
         // Get the bundle that contains the screensaver
         if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
             self.bundle = bundle
@@ -33,7 +35,7 @@ class MISpriteLoader {
         }
     }
     
-    /// Carica uno sprite PNG dalla cartella Resources del bundle
+    /// Carica uno sprite PNG dalla cartella Resources del bundle (async version)
     /// - Parameter name: nome del file senza estensione (es: "character_walk_1")
     /// - Returns: CGImage se trovato, nil altrimenti
     func loadSprite(named name: String) -> CGImage? {
@@ -83,6 +85,92 @@ class MISpriteLoader {
         return frames
     }
     
+    /// Pulisce la cache (utile per liberare memoria)
+    func clearCache() {
+        cachedImages.removeAll()
+        NSLog("MISpriteLoader: Cache cleared")
+    }
+    
+    /// Numero di sprite in cache
+    var cachedCount: Int {
+        cachedImages.count
+    }
+}
+
+// MARK: - Synchronous Wrapper for Main Thread Usage
+
+/// Wrapper sincrono per l'uso sul main thread (retrocompatibilità)
+/// Usa nonisolated(unsafe) per permettere l'accesso sincrono dal main thread
+/// ATTENZIONE: usare SOLO dal main thread per evitare data races
+@MainActor
+class MISpriteLoader {
+    
+    static let shared = MISpriteLoader()
+    
+    private var cachedImages: [String: CGImage] = [:]
+    private let bundle: Bundle
+    
+    private init() {
+        // Get the bundle that contains the screensaver
+        if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
+            self.bundle = bundle
+        } else {
+            self.bundle = Bundle.main
+        }
+    }
+    
+    /// Carica uno sprite PNG dalla cartella Resources del bundle
+    /// - Parameter name: nome del file senza estensione (es: "character_walk_1")
+    /// - Returns: CGImage se trovato, nil altrimenti
+    nonisolated func loadSprite(named name: String) -> CGImage? {
+        // Per retrocompatibilità, uso diretto senza async
+        // Sicuro perché chiamato solo dal main thread nel contesto screensaver
+        return loadSpriteSync(named: name)
+    }
+    
+    private nonisolated func loadSpriteSync(named name: String) -> CGImage? {
+        // Get bundle
+        let bundle: Bundle
+        if let b = Bundle(identifier: "com.screensaver.PixelParallax") {
+            bundle = b
+        } else {
+            bundle = Bundle.main
+        }
+        
+        // Try to load from bundle
+        guard let url = bundle.url(forResource: name, withExtension: "png") else {
+            NSLog("MISpriteLoader: Sprite '\(name).png' not found in bundle")
+            return nil
+        }
+        
+        guard let dataProvider = CGDataProvider(url: url as CFURL) else {
+            NSLog("MISpriteLoader: Could not create data provider for '\(name).png'")
+            return nil
+        }
+        
+        guard let image = CGImage(pngDataProviderSource: dataProvider, 
+                                   decode: nil, 
+                                   shouldInterpolate: false, 
+                                   intent: .defaultIntent) else {
+            NSLog("MISpriteLoader: Could not decode PNG for '\(name).png'")
+            return nil
+        }
+        
+        NSLog("MISpriteLoader: Loaded sprite '\(name).png' (\(image.width)x\(image.height))")
+        return image
+    }
+    
+    /// Carica una serie di frame per animazioni
+    nonisolated func loadAnimation(baseName: String, frameCount: Int) -> [CGImage] {
+        var frames: [CGImage] = []
+        for i in 1...frameCount {
+            if let frame = loadSprite(named: "\(baseName)_\(i)") {
+                frames.append(frame)
+            }
+        }
+        return frames
+    }
+    
     /// Disegna uno sprite nel context con scaling pixel-perfect
     /// - Parameters:
     ///   - image: CGImage da disegnare
@@ -91,7 +179,7 @@ class MISpriteLoader {
     ///   - y: coordinata Y
     ///   - scale: fattore di scala (1.0 = dimensione originale, 2.0 = 2x, etc.)
     ///   - flipX: se true, specchia orizzontalmente
-    static func drawSprite(_ image: CGImage, 
+    nonisolated static func drawSprite(_ image: CGImage, 
                           in context: CGContext, 
                           at x: CGFloat, 
                           y: CGFloat, 
