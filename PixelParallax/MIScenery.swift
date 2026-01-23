@@ -29,8 +29,7 @@ struct MIParticle: Sendable {
 }
 
 /// Gestisce scenari: palme, mare, nave, falò e particelle
-/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
-@MainActor
+/// NOTA: Questa classe deve essere usata solo dal main thread
 class MIScenery {
     
     private var palms: [MIPalm] = []

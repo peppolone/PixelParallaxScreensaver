@@ -5,6 +5,14 @@ fileprivate struct NPCColors {
     static let hair = NSColor(calibratedRed: 0.4, green: 0.25, blue: 0.15, alpha: 1.0)
 }
 
+/// Tipo di personaggio NPC
+enum NPCType: String, CaseIterable {
+    case character1 = "character"    // NPC generico
+    case guybrush = "guybrush"       // Guybrush Threepwood
+    case lechuck = "lechuck"         // LeChuck
+    case murray = "murray"           // Murray il teschio
+}
+
 struct MIPixelCharacter: Sendable {
     var x: CGFloat
     var z: CGFloat
@@ -13,18 +21,19 @@ struct MIPixelCharacter: Sendable {
     var walkPhase: CGFloat
     var colorShirt: NSColor
     var colorPants: NSColor
-    var spriteIndex: Int
+    var npcType: NPCType
 }
 
 /// Gestisce i personaggi NPC animati sulla spiaggia
-/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
-@MainActor
+/// NOTA: Questa classe deve essere usata solo dal main thread
 class MICharacters {
     
     private var npcs: [MIPixelCharacter] = []
     private let pixelSize: CGFloat
-    private var characterSprites: [CGImage] = []
-    private var useSpriteRendering: Bool = false
+    
+    /// Dizionario di sprite per ogni tipo di NPC
+    /// Chiave: NPCType, Valore: Array di frame animazione
+    private var npcSprites: [NPCType: [CGImage]] = [:]
     
     init(pixelSize: CGFloat, bounds: CGRect) {
         self.pixelSize = pixelSize
@@ -33,16 +42,34 @@ class MICharacters {
     }
     
     private func loadSprites() {
-        for i in 1...3 {
-            if let sprite = MISpriteLoader.shared.loadSprite(named: "character_walk_" + String(i)) {
-                characterSprites.append(sprite)
+        // Per ogni tipo di NPC, prova a caricare i suoi frame di animazione
+        for npcType in NPCType.allCases {
+            var frames: [CGImage] = []
+            
+            // Prova a caricare fino a 8 frame per tipo
+            for i in 1...8 {
+                let spriteName = "\(npcType.rawValue)_walk_\(i)"
+                if let sprite = MISpriteLoader.shared.loadSprite(named: spriteName) {
+                    frames.append(sprite)
+                }
+            }
+            
+            if !frames.isEmpty {
+                npcSprites[npcType] = frames
+                NSLog("MICharacters: Loaded \(frames.count) frames for \(npcType.rawValue)")
             }
         }
-        useSpriteRendering = !characterSprites.isEmpty
+        
+        NSLog("MICharacters: Total NPC types with sprites: \(npcSprites.count)")
     }
     
     private func setupNPCs(bounds: CGRect) {
+        // Crea NPC per ogni tipo che ha sprite, oppure usa character1 come fallback
+        let availableTypes = npcSprites.isEmpty ? [NPCType.character1] : Array(npcSprites.keys)
+        
         for i in 0..<3 {
+            let npcType = availableTypes[i % availableTypes.count]
+            
             npcs.append(MIPixelCharacter(
                 x: CGFloat.random(in: 0...bounds.width),
                 z: CGFloat.random(in: 0.8...1.2),
@@ -51,7 +78,7 @@ class MICharacters {
                 walkPhase: CGFloat.random(in: 0...10),
                 colorShirt: Bool.random() ? .white : NSColor(calibratedRed: 0.9, green: 0.9, blue: 0.8, alpha: 1),
                 colorPants: Bool.random() ? NSColor.brown : NSColor.darkGray,
-                spriteIndex: i % max(1, characterSprites.count)
+                npcType: npcType
             ))
         }
     }
@@ -73,22 +100,28 @@ class MICharacters {
     func drawAll(context: CGContext, bounds: CGRect) {
         let beachY = bounds.height * 0.08
         for npc in npcs {
-            if useSpriteRendering {
-                drawCharacterSprite(context: context, npc: npc, baseY: beachY)
+            // Usa sprite se disponibili per questo tipo di NPC
+            if let frames = npcSprites[npc.npcType], !frames.isEmpty {
+                drawCharacterSprite(context: context, npc: npc, frames: frames, baseY: beachY)
             } else {
                 drawCharacterProcedural(context: context, npc: npc, baseY: beachY)
             }
         }
     }
     
-    private func drawCharacterSprite(context: CGContext, npc: MIPixelCharacter, baseY: CGFloat) {
-        guard npc.spriteIndex < characterSprites.count else { return }
-        let sprite = characterSprites[npc.spriteIndex]
+    private func drawCharacterSprite(context: CGContext, npc: MIPixelCharacter, frames: [CGImage], baseY: CGFloat) {
+        // Cicla tra tutti i frame disponibili basandosi su walkPhase
+        let frameIndex = Int(npc.walkPhase) % frames.count
+        let sprite = frames[frameIndex]
+        
         let scale = pixelSize * npc.z * 3.0
         let yDepthOffset = (1.2 - npc.z) * 30 * pixelSize
         let yPos = baseY + yDepthOffset
-        let frame = Int(npc.walkPhase) % 4
-        let bobY = (frame == 1 || frame == 3) ? scale : 0
+        
+        // Bobbing verticale per simulare movimento camminata
+        let bobPhase = Int(npc.walkPhase * 2) % 4
+        let bobY = (bobPhase == 1 || bobPhase == 3) ? scale * 0.5 : 0
+        
         MISpriteLoader.drawSprite(sprite, in: context, at: npc.x, y: yPos + bobY, scale: scale, flipX: npc.direction < 0)
     }
     

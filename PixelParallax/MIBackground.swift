@@ -18,8 +18,7 @@ struct MICloud: Sendable {
 }
 
 /// Gestisce il rendering del cielo, stelle, nuvole e elementi di sfondo
-/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
-@MainActor
+/// NOTA: Questa classe deve essere usata solo dal main thread
 class MIBackground {
     
     private var stars: [MIStar] = []

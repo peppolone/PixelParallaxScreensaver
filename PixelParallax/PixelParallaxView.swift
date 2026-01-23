@@ -349,8 +349,7 @@ struct MIShootingStar: Sendable {
 }
 
 /// Gestisce effetti meteo: pioggia e stelle cadenti
-/// @MainActor garantisce che tutte le operazioni avvengano sul main thread
-@MainActor
+/// NOTA: Questa classe deve essere usata solo dal main thread
 class MIWeather {
     
     private var drops: [MIRainDrop] = []

@@ -28,7 +28,10 @@ actor MISpriteLoaderActor {
     
     init() {
         // Get the bundle that contains the screensaver
-        if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
+        // Try multiple identifiers for compatibility
+        if let bundle = Bundle(identifier: "com.peppe.PixelParallax") {
+            self.bundle = bundle
+        } else if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
             self.bundle = bundle
         } else {
             self.bundle = Bundle.main
@@ -99,10 +102,8 @@ actor MISpriteLoaderActor {
 
 // MARK: - Synchronous Wrapper for Main Thread Usage
 
-/// Wrapper sincrono per l'uso sul main thread (retrocompatibilità)
-/// Usa nonisolated(unsafe) per permettere l'accesso sincrono dal main thread
-/// ATTENZIONE: usare SOLO dal main thread per evitare data races
-@MainActor
+/// Wrapper sincrono per l'uso sul main thread
+/// NOTA: Usare SOLO dal main thread per evitare data races
 class MISpriteLoader {
     
     static let shared = MISpriteLoader()
@@ -112,34 +113,33 @@ class MISpriteLoader {
     
     private init() {
         // Get the bundle that contains the screensaver
-        if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
+        // Try multiple identifiers for compatibility
+        if let bundle = Bundle(identifier: "com.peppe.PixelParallax") {
             self.bundle = bundle
+            NSLog("MISpriteLoader: Using bundle com.peppe.PixelParallax")
+        } else if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
+            self.bundle = bundle
+            NSLog("MISpriteLoader: Using bundle com.screensaver.PixelParallax")
         } else {
             self.bundle = Bundle.main
+            NSLog("MISpriteLoader: Using Bundle.main")
         }
     }
     
     /// Carica uno sprite PNG dalla cartella Resources del bundle
     /// - Parameter name: nome del file senza estensione (es: "character_walk_1")
     /// - Returns: CGImage se trovato, nil altrimenti
-    nonisolated func loadSprite(named name: String) -> CGImage? {
+    func loadSprite(named name: String) -> CGImage? {
         // Per retrocompatibilità, uso diretto senza async
         // Sicuro perché chiamato solo dal main thread nel contesto screensaver
         return loadSpriteSync(named: name)
     }
     
-    private nonisolated func loadSpriteSync(named name: String) -> CGImage? {
-        // Get bundle
-        let bundle: Bundle
-        if let b = Bundle(identifier: "com.screensaver.PixelParallax") {
-            bundle = b
-        } else {
-            bundle = Bundle.main
-        }
-        
+    private func loadSpriteSync(named name: String) -> CGImage? {
+        // Use instance bundle (already resolved in init)
         // Try to load from bundle
         guard let url = bundle.url(forResource: name, withExtension: "png") else {
-            NSLog("MISpriteLoader: Sprite '\(name).png' not found in bundle")
+            NSLog("MISpriteLoader: Sprite '\(name).png' not found in bundle \(bundle.bundleIdentifier ?? "unknown")")
             return nil
         }
         
@@ -161,7 +161,7 @@ class MISpriteLoader {
     }
     
     /// Carica una serie di frame per animazioni
-    nonisolated func loadAnimation(baseName: String, frameCount: Int) -> [CGImage] {
+    func loadAnimation(baseName: String, frameCount: Int) -> [CGImage] {
         var frames: [CGImage] = []
         for i in 1...frameCount {
             if let frame = loadSprite(named: "\(baseName)_\(i)") {
@@ -179,7 +179,7 @@ class MISpriteLoader {
     ///   - y: coordinata Y
     ///   - scale: fattore di scala (1.0 = dimensione originale, 2.0 = 2x, etc.)
     ///   - flipX: se true, specchia orizzontalmente
-    nonisolated static func drawSprite(_ image: CGImage, 
+    static func drawSprite(_ image: CGImage, 
                           in context: CGContext, 
                           at x: CGFloat, 
                           y: CGFloat, 
