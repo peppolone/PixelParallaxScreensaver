@@ -39,6 +39,7 @@ class MIScenery {
     let pixelSize: CGFloat
     private var time: CGFloat = 0
     private var bounds: CGRect = .zero
+    private let isPreview: Bool
     
     private var shipX: CGFloat = 0
     private var boatYBob: CGFloat = 0
@@ -52,9 +53,10 @@ class MIScenery {
     // Beach height
     private let beachHeight: CGFloat = 0.12
     
-    init(pixelSize: CGFloat, bounds: CGRect) {
+    init(pixelSize: CGFloat, bounds: CGRect, isPreview: Bool = false) {
         self.pixelSize = pixelSize
         self.bounds = bounds
+        self.isPreview = isPreview
         setupPalms(bounds: bounds)
         setupFireflies(bounds: bounds)
         shipX = bounds.width * 0.5
@@ -62,7 +64,11 @@ class MIScenery {
     }
     
     private func setupPalms(bounds: CGRect) {
-        for _ in 0..<4 {
+        // In preview, mostra solo 2 palme invece di 7
+        let backPalmCount = isPreview ? 1 : 4
+        let frontPalmCount = isPreview ? 1 : 3
+        
+        for _ in 0..<backPalmCount {
             palms.append(MIPalm(
                 x: CGFloat.random(in: 0...bounds.width),
                 trunkHeight: CGFloat.random(in: 40...60),
@@ -72,7 +78,7 @@ class MIScenery {
                 layer: 0
             ))
         }
-        for _ in 0..<3 {
+        for _ in 0..<frontPalmCount {
             palms.append(MIPalm(
                 x: CGFloat.random(in: 0...bounds.width),
                 trunkHeight: CGFloat.random(in: 80...120),
@@ -85,7 +91,10 @@ class MIScenery {
     }
     
     private func setupFireflies(bounds: CGRect) {
-        for _ in 0..<30 {
+        // In preview, mostra solo 5 lucciole invece di 30
+        let fireflyCount = isPreview ? 5 : 30
+        
+        for _ in 0..<fireflyCount {
             fireflies.append(MIFirefly(
                 x: CGFloat.random(in: 0...bounds.width),
                 y: CGFloat.random(in: 0...bounds.height * 0.5),

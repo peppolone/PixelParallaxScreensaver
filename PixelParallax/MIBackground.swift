@@ -30,15 +30,20 @@ class MIBackground {
     
     let pixelSize: CGFloat
     private var time: CGFloat = 0
+    private let isPreview: Bool
     
-    init(pixelSize: CGFloat, bounds: CGRect) {
+    init(pixelSize: CGFloat, bounds: CGRect, isPreview: Bool = false) {
         self.pixelSize = pixelSize
+        self.isPreview = isPreview
         generateStars(bounds: bounds)
         generateClouds(bounds: bounds)
     }
     
     private func generateStars(bounds: CGRect) {
-        for _ in 0..<150 {
+        // In preview, mostra solo 30 stelle invece di 150
+        let starCount = isPreview ? 30 : 150
+        
+        for _ in 0..<starCount {
             stars.append(MIStar(
                 x: CGFloat.random(in: 0...bounds.width * 2),
                 y: CGFloat.random(in: bounds.height * 0.4...bounds.height),
@@ -50,7 +55,10 @@ class MIBackground {
     }
     
     private func generateClouds(bounds: CGRect) {
-        for _ in 0..<5 {
+        // In preview, mostra solo 2 nuvole invece di 5
+        let cloudCount = isPreview ? 2 : 5
+        
+        for _ in 0..<cloudCount {
             cloudsBack.append(MICloud(
                 x: CGFloat.random(in: 0...bounds.width),
                 y: CGFloat.random(in: bounds.height * 0.5...bounds.height * 0.8),

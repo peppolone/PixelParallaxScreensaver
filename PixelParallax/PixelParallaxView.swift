@@ -4,7 +4,7 @@ import ScreenSaver
 @objc(PixelParallaxView) class PixelParallaxView: ScreenSaverView {
     
     // MARK: - Constants
-    private let pixelSize: CGFloat = 3.0
+    private var pixelSize: CGFloat = 3.0  // Will be adjusted based on screen size
     private let dayDuration: TimeInterval = 60.0
     
     // MARK: - Modules
@@ -17,6 +17,7 @@ import ScreenSaver
     private var lastTime: TimeInterval = 0
     private var cycleTime: TimeInterval = 0.5
     private var frameCount: Int = 0
+    private var isInPreview: Bool = false
     
     // MARK: - Layer-backed drawing
     private var drawingLayer: CALayer!
@@ -24,13 +25,26 @@ import ScreenSaver
     // MARK: - Init
     override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
-        NSLog("PixelParallaxView INIT frame=\(frame) isPreview=\(isPreview)")
+        self.isInPreview = isPreview
+        
+        // Adjust pixel size based on frame size for proper scaling
+        // Full screen ~ 1920x1080, preview ~ 300x200
+        // Scale proportionally
+        let referenceWidth: CGFloat = 1920.0
+        let scaleFactor = frame.width / referenceWidth
+        pixelSize = max(1.0, 3.0 * scaleFactor)  // Minimum 1.0 pixel
+        
+        NSLog("PixelParallaxView INIT frame=\(frame) isPreview=\(isPreview) pixelSize=\(pixelSize)")
         initializeModules()
         setupLayer()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        // For coder init, calculate pixel size from current frame
+        let referenceWidth: CGFloat = 1920.0
+        let scaleFactor = frame.width / referenceWidth
+        pixelSize = max(1.0, 3.0 * scaleFactor)
         initializeModules()
         setupLayer()
     }
@@ -53,10 +67,10 @@ import ScreenSaver
         animationTimeInterval = 1.0 / 30.0
         lastTime = CACurrentMediaTime()
         
-        background = MIBackground(pixelSize: pixelSize, bounds: bounds)
-        scenery = MIScenery(pixelSize: pixelSize, bounds: bounds)
-        characters = MICharacters(pixelSize: pixelSize, bounds: bounds)
-        weather = MIWeather(pixelSize: pixelSize, bounds: bounds)
+        background = MIBackground(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
+        scenery = MIScenery(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
+        characters = MICharacters(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
+        weather = MIWeather(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
     }
     
     override var wantsUpdateLayer: Bool {
@@ -356,14 +370,16 @@ class MIWeather {
     private var shootingStars: [MIShootingStar] = []
     private var pixelSize: CGFloat
     private var bounds: CGRect
+    private let isPreview: Bool
     
     var isRaining: Bool = false
     private var timeSinceToggle: TimeInterval = 0
     private var rainIntensity: CGFloat = 0.0
     
-    init(pixelSize: CGFloat, bounds: CGRect) {
+    init(pixelSize: CGFloat, bounds: CGRect, isPreview: Bool = false) {
         self.pixelSize = pixelSize
         self.bounds = bounds
+        self.isPreview = isPreview
     }
     
     func update(deltaTime: TimeInterval) {
@@ -382,7 +398,9 @@ class MIWeather {
         }
         
         if rainIntensity > 0.01 {
-            let spawnCount = Int(10 * rainIntensity)
+            // In preview, meno gocce di pioggia
+            let baseSpawnCount = isPreview ? 3 : 10
+            let spawnCount = Int(CGFloat(baseSpawnCount) * rainIntensity)
             for _ in 0..<spawnCount {
                 let drop = MIRainDrop(
                     x: CGFloat.random(in: 0...bounds.width),

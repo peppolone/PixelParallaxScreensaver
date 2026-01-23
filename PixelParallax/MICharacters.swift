@@ -30,13 +30,15 @@ class MICharacters {
     
     private var npcs: [MIPixelCharacter] = []
     private let pixelSize: CGFloat
+    private let isPreview: Bool
     
     /// Dizionario di sprite per ogni tipo di NPC
     /// Chiave: NPCType, Valore: Array di frame animazione
     private var npcSprites: [NPCType: [CGImage]] = [:]
     
-    init(pixelSize: CGFloat, bounds: CGRect) {
+    init(pixelSize: CGFloat, bounds: CGRect, isPreview: Bool = false) {
         self.pixelSize = pixelSize
+        self.isPreview = isPreview
         loadSprites()
         setupNPCs(bounds: bounds)
     }
@@ -67,7 +69,10 @@ class MICharacters {
         // Crea NPC per ogni tipo che ha sprite, oppure usa character1 come fallback
         let availableTypes = npcSprites.isEmpty ? [NPCType.character1] : Array(npcSprites.keys)
         
-        for i in 0..<3 {
+        // In preview mode, mostra solo 1 NPC per evitare affollamento
+        let npcCount = isPreview ? 1 : 3
+        
+        for i in 0..<npcCount {
             let npcType = availableTypes[i % availableTypes.count]
             
             npcs.append(MIPixelCharacter(
