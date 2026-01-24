@@ -24,18 +24,17 @@ import ScreenSaver
 actor MISpriteLoaderActor {
     
     private var cachedImages: [String: CGImage] = [:]
-    private let bundle: Bundle
+    private var bundle: Bundle?
     
     init() {
-        // Get the bundle that contains the screensaver
-        // Try multiple identifiers for compatibility
-        if let bundle = Bundle(identifier: "com.peppe.PixelParallax") {
-            self.bundle = bundle
-        } else if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
-            self.bundle = bundle
-        } else {
-            self.bundle = Bundle.main
-        }
+        // Bundle will be set later when we have a class reference
+        self.bundle = nil
+    }
+    
+    /// Set the bundle from a ScreenSaverView class
+    func setBundle(from view: ScreenSaverView) {
+        self.bundle = Bundle(for: type(of: view))
+        NSLog("MISpriteLoader: Bundle set to \(self.bundle?.bundleIdentifier ?? "unknown")")
     }
     
     /// Carica uno sprite PNG dalla cartella Resources del bundle (async version)
@@ -47,9 +46,14 @@ actor MISpriteLoaderActor {
             return cached
         }
         
+        guard let bundle = self.bundle else {
+            NSLog("MISpriteLoader: Bundle not set! Call setBundle(from:) first")
+            return nil
+        }
+        
         // Try to load from bundle
         guard let url = bundle.url(forResource: name, withExtension: "png") else {
-            NSLog("MISpriteLoader: Sprite '\(name).png' not found in bundle")
+            NSLog("MISpriteLoader: Sprite '\(name).png' not found in bundle \(bundle.bundleIdentifier ?? "unknown")")
             return nil
         }
         
@@ -109,21 +113,18 @@ class MISpriteLoader {
     static let shared = MISpriteLoader()
     
     private var cachedImages: [String: CGImage] = [:]
-    private let bundle: Bundle
+    private var bundle: Bundle?
     
     private init() {
-        // Get the bundle that contains the screensaver
-        // Try multiple identifiers for compatibility
-        if let bundle = Bundle(identifier: "com.peppe.PixelParallax") {
-            self.bundle = bundle
-            NSLog("MISpriteLoader: Using bundle com.peppe.PixelParallax")
-        } else if let bundle = Bundle(identifier: "com.screensaver.PixelParallax") {
-            self.bundle = bundle
-            NSLog("MISpriteLoader: Using bundle com.screensaver.PixelParallax")
-        } else {
-            self.bundle = Bundle.main
-            NSLog("MISpriteLoader: Using Bundle.main")
-        }
+        // Bundle will be set by setBundle(from:)
+        self.bundle = nil
+    }
+    
+    /// Set the bundle from a ScreenSaverView instance
+    /// Must be called before loading any sprites
+    func setBundle(from view: ScreenSaverView) {
+        self.bundle = Bundle(for: type(of: view))
+        NSLog("MISpriteLoader: Bundle set to \(self.bundle?.bundleIdentifier ?? "unknown")")
     }
     
     /// Carica uno sprite PNG dalla cartella Resources del bundle
@@ -136,7 +137,11 @@ class MISpriteLoader {
     }
     
     private func loadSpriteSync(named name: String) -> CGImage? {
-        // Use instance bundle (already resolved in init)
+        guard let bundle = self.bundle else {
+            NSLog("MISpriteLoader: Bundle not set! Call setBundle(from:) first")
+            return nil
+        }
+        
         // Try to load from bundle
         guard let url = bundle.url(forResource: name, withExtension: "png") else {
             NSLog("MISpriteLoader: Sprite '\(name).png' not found in bundle \(bundle.bundleIdentifier ?? "unknown")")

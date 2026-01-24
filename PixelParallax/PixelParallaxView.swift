@@ -67,6 +67,9 @@ import ScreenSaver
         animationTimeInterval = 1.0 / 30.0
         lastTime = CACurrentMediaTime()
         
+        // Set the bundle for sprite loading BEFORE creating characters
+        MISpriteLoader.shared.setBundle(from: self)
+        
         background = MIBackground(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
         scenery = MIScenery(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
         characters = MICharacters(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
