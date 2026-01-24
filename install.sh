@@ -8,7 +8,8 @@ ASSETS_DIR="$SOURCE_DIR/Assets"
 
 echo "🔨 Compiling $APP_NAME (Universal Binary)..."
 
-# Ensure directories exist
+# Clean build: remove old bundle completely and recreate
+rm -rf "$SAVER_NAME"
 mkdir -p "$SAVER_NAME/Contents/MacOS"
 mkdir -p "$SAVER_NAME/Contents/Resources"
 
