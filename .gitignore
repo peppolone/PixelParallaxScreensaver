@@ -2,6 +2,7 @@
 .DS_Store
 .AppleDouble
 .LSOverride
+**/.DS_Store
 
 # Xcode
 build/
@@ -12,6 +13,7 @@ DerivedData/
 
 # User-specific Xcode files
 xcuserdata/
+*.xcuserdatad/
 
 # Swift Package Manager
 .swiftpm/
@@ -47,6 +49,13 @@ GuybrushPart1.png
 Lechuck.png
 TSOMI_Elaine.png
 MICarlaSheet.png
+
+# Script obsoleti
+add_sprites_to_project.py
+add_to_project.py
+create_sprites.py
+update_characters.py
+extract_guybrush_sprites.py
 
 # Bundle compilato (ricostruibile con ./install.sh)
 PixelParallax.saver/
