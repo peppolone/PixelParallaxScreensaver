@@ -11,7 +11,7 @@
 
 A **native macOS screensaver** written entirely in Swift using **pure Core Graphics** — no SceneKit, no SpriteKit, no external dependencies.
 
-Experience a beautiful side-scrolling **pixel-art beach scene** inspired by classic adventure games like **The Secret of Monkey Island**, featuring dynamic day/night cycles, weather effects, and animated characters.
+Experience a beautiful side-scrolling **pixel-art beach scene** featuring dynamic day/night cycles, weather effects, and customizable animated characters.
 
 ---
 
@@ -22,7 +22,7 @@ Experience a beautiful side-scrolling **pixel-art beach scene** inspired by clas
 | 🎨 **Procedural Pixel Art** | All graphics (trees, ships, bonfire, characters) are rendered via code using Core Graphics |
 | 🌅 **Dynamic Day/Night Cycle** | Sky gradients smoothly transition: Night → Sunrise → Day → Sunset |
 | 🌧️ **Weather System** | Random rain storms with realistic wind physics |
-| 🚶 **Animated NPCs** | Pixel-art characters (Monkey Island inspired!) walking along the beach |
+| 🚶 **Custom Characters** | Add your own pixel-art characters with walk animations |
 | 🏝️ **Parallax Scrolling** | Multiple layers create depth: Background, Ships, Waves, Beach, Foreground Palms |
 | ⚡ **60fps Performance** | Optimized for smooth animation with minimal CPU/GPU usage |
 
@@ -91,11 +91,8 @@ PixelParallaxScreensaver/
 │   ├── MIScenery.swift           # Palms, bonfire & particles
 │   ├── MICharacters.swift        # NPC movement & animation
 │   ├── MISpriteLoader.swift      # Sprite loading utilities
-│   └── Assets/                   # Character sprite PNGs
-│       ├── guybrush_walk_*.png   # Guybrush walking frames (6)
-│       ├── lechuck_walk_*.png    # LeChuck walking frames (8)
-│       ├── elaine_walk_*.png     # Elaine walking frames (7)
-│       └── carla_walk_*.png      # Carla walking frames (8)
+│   └── Assets/                   # Character sprite PNGs (add your own!)
+│       └── {name}_walk_*.png     # Walking animation frames
 ├── PixelParallax.xcodeproj/      # Xcode project
 ├── install.sh                    # Installation script
 └── README.md
