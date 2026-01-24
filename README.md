@@ -91,8 +91,12 @@ PixelParallaxScreensaver/
 │   ├── MIScenery.swift           # Palms, bonfire & particles
 │   ├── MICharacters.swift        # NPC movement & animation
 │   ├── MISpriteLoader.swift      # Sprite loading utilities
-│   └── Assets/                   # Character sprite sheets
-├── PixelParallax.saver/          # Compiled screensaver bundle
+│   └── Assets/                   # Character sprite PNGs
+│       ├── guybrush_walk_*.png   # Guybrush walking frames (6)
+│       ├── lechuck_walk_*.png    # LeChuck walking frames (8)
+│       ├── elaine_walk_*.png     # Elaine walking frames (7)
+│       └── carla_walk_*.png      # Carla walking frames (8)
+├── PixelParallax.xcodeproj/      # Xcode project
 ├── install.sh                    # Installation script
 └── README.md
 ```
