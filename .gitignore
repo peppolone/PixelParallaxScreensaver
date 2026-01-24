@@ -4,6 +4,10 @@
 .LSOverride
 **/.DS_Store
 
+# VS Code / Copilot local folders
+.agents/
+.github/
+
 # Xcode
 build/
 DerivedData/
