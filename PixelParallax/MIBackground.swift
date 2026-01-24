@@ -192,14 +192,63 @@ class MIBackground {
         let totalWidth = bounds.width + cloud.width * 2
         let wrappedX = ((cloud.x + cloud.width).truncatingRemainder(dividingBy: totalWidth)) - cloud.width
         
-        context.setFillColor(env.cloudColor.nsColor.cgColor)
-        
         let py = cloud.y
         let w = cloud.width
-        let h = w * 0.4
+        let h = w * 0.45
         
-        context.fillEllipse(in: CGRect(x: wrappedX, y: py, width: w * 0.6, height: h))
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.3, y: py + h * 0.2, width: w * 0.7, height: h * 0.8))
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.2, y: py - h * 0.2, width: w * 0.5, height: h * 0.9))
+        // Colori per sfumatura: base, highlight (bordi più chiari), shadow (interno più scuro)
+        let baseColor = env.cloudColor.nsColor.cgColor
+        let highlightColor = env.cloudColor.lighter(by: 0.15).nsColor.cgColor
+        let shadowColor = env.cloudColor.darker(by: 0.1).nsColor.cgColor
+        
+        // Struttura a "bolle" multiple in stile Monkey Island
+        // Layer 1: Ombra interna (leggermente spostata in basso)
+        context.setFillColor(shadowColor)
+        let shadowOffset: CGFloat = h * 0.08
+        
+        // Bolla centrale grande (ombra)
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.25, y: py - shadowOffset, width: w * 0.5, height: h * 0.85))
+        // Bolle laterali (ombre)
+        context.fillEllipse(in: CGRect(x: wrappedX, y: py - h * 0.15 - shadowOffset, width: w * 0.4, height: h * 0.7))
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.6, y: py - h * 0.12 - shadowOffset, width: w * 0.4, height: h * 0.72))
+        
+        // Layer 2: Corpo principale della nuvola (colore base)
+        context.setFillColor(baseColor)
+        
+        // Bolla grande centrale
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.25, y: py, width: w * 0.5, height: h * 0.9))
+        // Bolla sinistra bassa
+        context.fillEllipse(in: CGRect(x: wrappedX, y: py - h * 0.15, width: w * 0.4, height: h * 0.7))
+        // Bolla destra bassa  
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.6, y: py - h * 0.12, width: w * 0.4, height: h * 0.72))
+        // Bolla centrale superiore (fa la "gobba" principale)
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.3, y: py + h * 0.25, width: w * 0.4, height: h * 0.65))
+        // Piccola bolla extra a sinistra
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.08, y: py + h * 0.05, width: w * 0.28, height: h * 0.5))
+        // Piccola bolla extra a destra
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.65, y: py + h * 0.08, width: w * 0.3, height: h * 0.52))
+        
+        // Layer 3: Highlight sui bordi superiori (effetto luce dal sole)
+        context.setFillColor(highlightColor)
+        
+        // Highlight sulla gobba principale
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.35, y: py + h * 0.45, width: w * 0.3, height: h * 0.35))
+        // Piccoli highlight sulle bolle laterali
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.05, y: py + h * 0.15, width: w * 0.18, height: h * 0.28))
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.72, y: py + h * 0.18, width: w * 0.18, height: h * 0.28))
+    }
+}
+
+// MARK: - MIColor Extensions per sfumature
+extension MIColor {
+    func lighter(by percentage: CGFloat) -> MIColor {
+        let newR = min(1.0, r + (1.0 - r) * percentage)
+        let newG = min(1.0, g + (1.0 - g) * percentage)
+        let newB = min(1.0, b + (1.0 - b) * percentage)
+        return MIColor(r: newR, g: newG, b: newB, a: a)
+    }
+    
+    func darker(by percentage: CGFloat) -> MIColor {
+        return MIColor(r: r * (1.0 - percentage), g: g * (1.0 - percentage), b: b * (1.0 - percentage), a: a)
     }
 }

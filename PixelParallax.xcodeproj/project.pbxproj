@@ -19,8 +19,6 @@
 				H4A2B3C4D5E60001 /* guybrush_walk_4.png in Resources */ = {isa = PBXBuildFile; fileRef = H4A2B3C4D5E60002 /* guybrush_walk_4.png */; };
 				H5A2B3C4D5E60001 /* guybrush_walk_5.png in Resources */ = {isa = PBXBuildFile; fileRef = H5A2B3C4D5E60002 /* guybrush_walk_5.png */; };
 				H6A2B3C4D5E60001 /* guybrush_walk_6.png in Resources */ = {isa = PBXBuildFile; fileRef = H6A2B3C4D5E60002 /* guybrush_walk_6.png */; };
-				H7A2B3C4D5E60001 /* guybrush_walk_7.png in Resources */ = {isa = PBXBuildFile; fileRef = H7A2B3C4D5E60002 /* guybrush_walk_7.png */; };
-				H8A2B3C4D5E60001 /* guybrush_walk_8.png in Resources */ = {isa = PBXBuildFile; fileRef = H8A2B3C4D5E60002 /* guybrush_walk_8.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,8 +36,6 @@
 				H4A2B3C4D5E60002 /* guybrush_walk_4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Assets/guybrush_walk_4.png"; sourceTree = "<group>"; };
 				H5A2B3C4D5E60002 /* guybrush_walk_5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Assets/guybrush_walk_5.png"; sourceTree = "<group>"; };
 				H6A2B3C4D5E60002 /* guybrush_walk_6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Assets/guybrush_walk_6.png"; sourceTree = "<group>"; };
-				H7A2B3C4D5E60002 /* guybrush_walk_7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Assets/guybrush_walk_7.png"; sourceTree = "<group>"; };
-				H8A2B3C4D5E60002 /* guybrush_walk_8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Assets/guybrush_walk_8.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -77,8 +73,6 @@
 						H4A2B3C4D5E60002 /* guybrush_walk_4.png */,
 						H5A2B3C4D5E60002 /* guybrush_walk_5.png */,
 						H6A2B3C4D5E60002 /* guybrush_walk_6.png */,
-						H7A2B3C4D5E60002 /* guybrush_walk_7.png */,
-						H8A2B3C4D5E60002 /* guybrush_walk_8.png */,
 			);
 			path = PixelParallax;
 			sourceTree = "<group>";
@@ -155,8 +149,6 @@
 						H4A2B3C4D5E60001 /* guybrush_walk_4.png in Resources */,
 						H5A2B3C4D5E60001 /* guybrush_walk_5.png in Resources */,
 						H6A2B3C4D5E60001 /* guybrush_walk_6.png in Resources */,
-						H7A2B3C4D5E60001 /* guybrush_walk_7.png in Resources */,
-						H8A2B3C4D5E60001 /* guybrush_walk_8.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
