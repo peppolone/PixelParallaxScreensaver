@@ -1,14 +1,17 @@
 # 🏝️ PixelParallax Screensaver
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Status-🚧%20Work%20in%20Progress-yellow?style=flat-square" alt="WIP">
   <img src="https://img.shields.io/badge/macOS-14.0+-blue?style=flat-square&logo=apple" alt="macOS">
   <img src="https://img.shields.io/badge/Swift-5.9+-orange?style=flat-square&logo=swift" alt="Swift">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
 </p>
 
+> ⚠️ **This project is under active development!** Features may change and some sprites are still being refined.
+
 A **native macOS screensaver** written entirely in Swift using **pure Core Graphics** — no SceneKit, no SpriteKit, no external dependencies.
 
-Experience a beautiful side-scrolling **pixel-art beach scene** inspired by classic adventure games, featuring dynamic day/night cycles, weather effects, and animated characters.
+Experience a beautiful side-scrolling **pixel-art beach scene** inspired by classic adventure games like **The Secret of Monkey Island**, featuring dynamic day/night cycles, weather effects, and animated characters.
 
 ---
 

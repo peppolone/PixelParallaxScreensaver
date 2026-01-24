@@ -40,3 +40,14 @@ __pycache__/
 # Misc
 *.log
 *.tmp
+
+# Sprite sheet originali (troppo grandi per git)
+*_GRID.png
+GuybrushPart1.png
+Lechuck.png
+TSOMI_Elaine.png
+MICarlaSheet.png
+
+# Bundle compilato (ricostruibile)
+PixelParallax.saver/Contents/MacOS/
+PixelParallax.saver/Contents/Resources/

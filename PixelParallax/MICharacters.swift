@@ -7,10 +7,10 @@ fileprivate struct NPCColors {
 
 /// Tipo di personaggio NPC
 enum NPCType: String, CaseIterable {
-    case character1 = "character"    // NPC generico
     case guybrush = "guybrush"       // Guybrush Threepwood
-    case lechuck = "lechuck"         // LeChuck
-    case murray = "murray"           // Murray il teschio
+    case lechuck = "lechuck"         // LeChuck (pirata fantasma)
+    case elaine = "elaine"           // Elaine Marley (governatrice)
+    case carla = "carla"             // Carla (spadaccina)
 }
 
 struct MIPixelCharacter: Sendable {
@@ -66,11 +66,11 @@ class MICharacters {
     }
     
     private func setupNPCs(bounds: CGRect) {
-        // Crea NPC per ogni tipo che ha sprite, oppure usa character1 come fallback
-        let availableTypes = npcSprites.isEmpty ? [NPCType.character1] : Array(npcSprites.keys)
+        // Crea NPC per ogni tipo che ha sprite
+        let availableTypes = npcSprites.isEmpty ? [NPCType.guybrush] : Array(npcSprites.keys)
         
-        // In preview mode, mostra solo 1 NPC per evitare affollamento
-        let npcCount = isPreview ? 1 : 3
+        // In preview mode, mostra solo 1-2 NPC; altrimenti mostra tutti i personaggi disponibili
+        let npcCount = isPreview ? min(2, availableTypes.count) : availableTypes.count
         
         for i in 0..<npcCount {
             let npcType = availableTypes[i % availableTypes.count]
@@ -119,13 +119,14 @@ class MICharacters {
         let frameIndex = Int(npc.walkPhase) % frames.count
         let sprite = frames[frameIndex]
         
-        let scale = pixelSize * npc.z * 3.0
+        // Scala piccola per sprite pixel art dettagliati
+        let scale = pixelSize * npc.z * 0.8
         let yDepthOffset = (1.2 - npc.z) * 30 * pixelSize
         let yPos = baseY + yDepthOffset
         
         // Bobbing verticale per simulare movimento camminata
         let bobPhase = Int(npc.walkPhase * 2) % 4
-        let bobY = (bobPhase == 1 || bobPhase == 3) ? scale * 0.5 : 0
+        let bobY = (bobPhase == 1 || bobPhase == 3) ? scale * 0.3 : 0
         
         MISpriteLoader.drawSprite(sprite, in: context, at: npc.x, y: yPos + bobY, scale: scale, flipX: npc.direction < 0)
     }
