@@ -48,6 +48,5 @@ Lechuck.png
 TSOMI_Elaine.png
 MICarlaSheet.png
 
-# Bundle compilato (ricostruibile)
-PixelParallax.saver/Contents/MacOS/
-PixelParallax.saver/Contents/Resources/
+# Bundle compilato (ricostruibile con ./install.sh)
+PixelParallax.saver/
