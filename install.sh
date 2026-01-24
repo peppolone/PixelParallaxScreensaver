@@ -12,8 +12,10 @@ echo "🔨 Compiling $APP_NAME (Universal Binary)..."
 mkdir -p "$SAVER_NAME/Contents/MacOS"
 mkdir -p "$SAVER_NAME/Contents/Resources"
 
-# Copy Info.plist
-cp "$SAVER_NAME/Contents/Info.plist" "$SAVER_NAME/Contents/Info.plist.bak" 2>/dev/null || true
+# Copy Info.plist from source directory
+if [ -f "$SOURCE_DIR/Info.plist" ]; then
+    cp "$SOURCE_DIR/Info.plist" "$SAVER_NAME/Contents/Info.plist"
+fi
 
 # Copy assets (PNG sprites) to Resources
 if [ -d "$ASSETS_DIR" ]; then
