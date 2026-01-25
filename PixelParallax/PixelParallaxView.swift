@@ -5,7 +5,7 @@ import ScreenSaver
     
     // MARK: - Constants
     private var pixelSize: CGFloat = 3.0  // Will be adjusted based on screen size
-    private let dayDuration: TimeInterval = 60.0
+    private let dayDuration: TimeInterval = 240.0  // 4 minuti per ciclo completo
     
     // MARK: - Modules
     private var background: MIBackground!
@@ -159,7 +159,7 @@ import ScreenSaver
         // MIBackground
         background.drawSky(context: context, bounds: bounds, env: currentEnv)
         background.drawStars(context: context, bounds: bounds, env: currentEnv)
-        background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv)
+        background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
         background.drawMountains(context: context, bounds: bounds, env: currentEnv)
         background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         
@@ -266,7 +266,7 @@ import ScreenSaver
         // Draw all layers
         background.drawSky(context: context, bounds: bounds, env: currentEnv)
         background.drawStars(context: context, bounds: bounds, env: currentEnv)
-        background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv)
+        background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
         background.drawMountains(context: context, bounds: bounds, env: currentEnv)
         background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         

@@ -108,7 +108,7 @@ class MIScenery {
         time += deltaTime
         seaOffset += 0.15
         palmOffset += 0.12
-        shipX -= 0.2
+        shipX += 0.2  // Movimento verso destra (era -0.2)
         boatYBob = sin(time * 1.5) * 2.0
         shipRock = sin(time * 0.8) * 0.05
         windStrength = sin(time * 0.5) * 0.2
@@ -227,6 +227,9 @@ class MIScenery {
     
     // MARK: - Draw Ship
     
+    /// Scala pixel per sprite (coerenza con MIBackground)
+    private let spriteScale: CGFloat = 2.0
+    
     func drawShip(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
         let horizonY = bounds.height * 0.35
         var drawX = shipX
@@ -238,23 +241,57 @@ class MIScenery {
         
         context.saveGState()
         
-        // Reflection
-        context.saveGState()
-        let beachTop = bounds.height * beachHeight
-        context.translateBy(x: 0, y: horizonY)
-        context.scaleBy(x: 1.0, y: -1.0)
-        context.translateBy(x: 0, y: -horizonY)
-        context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
-        
-        var transform = CGAffineTransform.identity
-        transform.c = 0.1 * sin(time * 2.0)
-        context.concatenate(transform)
-        context.setAlpha(0.3)
-        drawShipHull(context: context, x: drawX, y: baseY, env: env, reflection: true)
-        context.restoreGState()
-        
-        // Actual ship
-        drawShipHull(context: context, x: drawX, y: baseY, env: env, reflection: false)
+        // Prova a caricare lo sprite della nave
+        if let shipSprite = MISpriteLoader.shared.loadSprite(named: "ship") {
+            // Disegna usando sprite
+            let scaledWidth = CGFloat(shipSprite.width) * spriteScale
+            let scaledHeight = CGFloat(shipSprite.height) * spriteScale
+            
+            // Posizione nave: sulla linea dell'orizzonte (acqua)
+            let shipY = horizonY - scaledHeight/2 + boatYBob
+            
+            // Nave reale (disegna prima, così il riflesso va sotto)
+            context.saveGState()
+            context.translateBy(x: drawX + scaledWidth/2, y: shipY + scaledHeight/2)
+            context.rotate(by: shipRock)
+            context.translateBy(x: -(drawX + scaledWidth/2), y: -(shipY + scaledHeight/2))
+            let shipRect = CGRect(x: drawX, y: shipY, width: scaledWidth, height: scaledHeight)
+            context.draw(shipSprite, in: shipRect)
+            context.restoreGState()
+            
+            // Reflection (riflesso nell'acqua, sotto la nave)
+            context.saveGState()
+            let beachTop = bounds.height * beachHeight
+            // Riflesso: flippa verticalmente sotto la nave
+            let reflectY = shipY - scaledHeight  // Sotto la nave
+            context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
+            context.setAlpha(0.25)
+            // Flip verticale
+            context.translateBy(x: 0, y: reflectY + scaledHeight)
+            context.scaleBy(x: 1.0, y: -1.0)
+            let reflectRect = CGRect(x: drawX, y: 0, width: scaledWidth, height: scaledHeight)
+            context.draw(shipSprite, in: reflectRect)
+            context.restoreGState()
+        } else {
+            // Fallback: disegno procedurale
+            // Reflection
+            context.saveGState()
+            let beachTop = bounds.height * beachHeight
+            context.translateBy(x: 0, y: horizonY)
+            context.scaleBy(x: 1.0, y: -1.0)
+            context.translateBy(x: 0, y: -horizonY)
+            context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
+            
+            var transform = CGAffineTransform.identity
+            transform.c = 0.1 * sin(time * 2.0)
+            context.concatenate(transform)
+            context.setAlpha(0.3)
+            drawShipHull(context: context, x: drawX, y: baseY, env: env, reflection: true)
+            context.restoreGState()
+            
+            // Actual ship
+            drawShipHull(context: context, x: drawX, y: baseY, env: env, reflection: false)
+        }
         
         context.restoreGState()
     }

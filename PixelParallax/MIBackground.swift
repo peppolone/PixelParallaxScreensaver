@@ -26,7 +26,7 @@ class MIBackground {
     
     /// Scala pixel uniforme per TUTTI gli sprite (no ridimensionamento dinamico)
     /// Questo mantiene la coerenza pixel art
-    private let spriteScale: CGFloat = 3.0
+    private let spriteScale: CGFloat = 2.0
     
     /// Sprite delle nuvole caricati da Assets
     /// Chiave: nome sprite, Valore: CGImage
@@ -157,15 +157,79 @@ class MIBackground {
         }
     }
     
-    func drawCelestialBody(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
-        let cx = bounds.width * 0.8
-        let cy = bounds.height * 0.8
+    func drawCelestialBody(context: CGContext, bounds: CGRect, env: MIPalette.Environment, cycleTime: CGFloat = 0.5) {
+        // cycleTime: 0.0-1.0 rappresenta il ciclo completo giorno/notte
+        // Usiamo funzioni trigonometriche per movimento fluido
+        
+        let horizonY = bounds.height * 0.35  // Linea dell'orizzonte
+        let maxHeight = bounds.height * 0.9  // Altezza massima
         let radius: CGFloat = 40.0 * (pixelSize / 2.0)
         
+        // Il sole è visibile da 0.25 a 0.75 (metà superiore del ciclo)
+        // La luna è visibile da 0.75 a 1.25 (0.75 a 1.0 + 0.0 a 0.25)
+        
+        let isDay = cycleTime >= 0.2 && cycleTime <= 0.8
+        
+        if isDay {
+            // SOLE: movimento ad arco continuo
+            // Mappiamo 0.2-0.8 su 0-π per un arco completo
+            let sunProgress = (cycleTime - 0.2) / 0.6  // 0 -> 1
+            
+            // X: da sinistra (0.1) a destra (0.9)
+            let sunX = bounds.width * (0.1 + sunProgress * 0.8)
+            
+            // Y: arco parabolico usando sin
+            let sunY = horizonY + sin(sunProgress * .pi) * (maxHeight - horizonY)
+            
+            // Dissolvenza leggera vicino all'orizzonte (minimo 80% opacità)
+            let fadeDistance: CGFloat = 0.05
+            var alpha: CGFloat = 1.0
+            if sunProgress < fadeDistance {
+                alpha = 0.8 + (sunProgress / fadeDistance) * 0.2
+            } else if sunProgress > (1.0 - fadeDistance) {
+                alpha = 0.8 + ((1.0 - sunProgress) / fadeDistance) * 0.2
+            }
+            
+            drawCelestialBodyAt(context: context, cx: sunX, cy: sunY, radius: radius, env: env, isMoon: false, alpha: alpha)
+        } else {
+            // LUNA: movimento ad arco continuo durante la notte
+            // Mappiamo la notte (0.8-1.0 e 0.0-0.2) su 0-π
+            var moonProgress: CGFloat
+            if cycleTime >= 0.8 {
+                moonProgress = (cycleTime - 0.8) / 0.4  // 0.8-1.0 → 0-0.5
+            } else {
+                moonProgress = 0.5 + (cycleTime / 0.4)  // 0.0-0.2 → 0.5-1.0
+            }
+            
+            // X: da sinistra a destra
+            let moonX = bounds.width * (0.1 + moonProgress * 0.8)
+            
+            // Y: arco parabolico
+            let moonY = horizonY + sin(moonProgress * .pi) * (maxHeight - horizonY)
+            
+            // Dissolvenza leggera vicino all'orizzonte (minimo 80% opacità)
+            let fadeDistance: CGFloat = 0.05
+            var alpha: CGFloat = 1.0
+            if moonProgress < fadeDistance {
+                alpha = 0.8 + (moonProgress / fadeDistance) * 0.2
+            } else if moonProgress > (1.0 - fadeDistance) {
+                alpha = 0.8 + ((1.0 - moonProgress) / fadeDistance) * 0.2
+            }
+            
+            drawCelestialBodyAt(context: context, cx: moonX, cy: moonY, radius: radius, env: env, isMoon: true, alpha: alpha)
+        }
+    }
+    
+    private func drawCelestialBodyAt(context: CGContext, cx: CGFloat, cy: CGFloat, radius: CGFloat, env: MIPalette.Environment, isMoon: Bool, alpha: CGFloat) {
+        if alpha <= 0 { return }
+        
+        context.saveGState()
+        context.setAlpha(alpha)
+        
+        // Glow
         context.saveGState()
         context.setBlendMode(.screen)
         let glowRadius = radius * 3.0
-        
         let glowColors = [env.sunMoonGlow.nsColor.cgColor, env.sunMoonGlow.nsColor.withAlphaComponent(0).cgColor] as CFArray
         let locations: [CGFloat] = [0.0, 1.0]
         if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: glowColors, locations: locations) {
@@ -173,8 +237,20 @@ class MIBackground {
         }
         context.restoreGState()
         
+        // Corpo celeste
         context.setFillColor(env.sunMoon.nsColor.cgColor)
         context.fillEllipse(in: CGRect(x: cx - radius, y: cy - radius, width: radius * 2, height: radius * 2))
+        
+        // Crateri sulla luna
+        if isMoon {
+            let craterColor = env.sunMoon.nsColor.blended(withFraction: 0.15, of: .gray) ?? env.sunMoon.nsColor
+            context.setFillColor(craterColor.cgColor)
+            context.fillEllipse(in: CGRect(x: cx - radius * 0.3, y: cy + radius * 0.2, width: radius * 0.25, height: radius * 0.25))
+            context.fillEllipse(in: CGRect(x: cx + radius * 0.25, y: cy - radius * 0.1, width: radius * 0.18, height: radius * 0.18))
+            context.fillEllipse(in: CGRect(x: cx - radius * 0.05, y: cy - radius * 0.35, width: radius * 0.12, height: radius * 0.12))
+        }
+        
+        context.restoreGState()
     }
     
     func drawMountains(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
