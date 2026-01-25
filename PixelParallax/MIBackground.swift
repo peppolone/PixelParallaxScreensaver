@@ -12,9 +12,8 @@ struct MIStar: Sendable {
 struct MICloud: Sendable {
     var x: CGFloat
     var y: CGFloat
-    var width: CGFloat
-    var type: Int
     var speed: CGFloat
+    var spriteType: String  // "cloud_small", "cloud", "cloud_large"
 }
 
 /// Gestisce il rendering del cielo, stelle, nuvole e elementi di sfondo
@@ -24,6 +23,14 @@ class MIBackground {
     private var stars: [MIStar] = []
     private var cloudsBack: [MICloud] = []
     private var cloudsFront: [MICloud] = []
+    
+    /// Scala pixel uniforme per TUTTI gli sprite (no ridimensionamento dinamico)
+    /// Questo mantiene la coerenza pixel art
+    private let spriteScale: CGFloat = 3.0
+    
+    /// Sprite delle nuvole caricati da Assets
+    /// Chiave: nome sprite, Valore: CGImage
+    private var cloudSprites: [String: CGImage] = [:]
     
     private var starOffset: CGFloat = 0
     private var mountainOffset: CGFloat = 0
@@ -35,8 +42,26 @@ class MIBackground {
     init(pixelSize: CGFloat, bounds: CGRect, isPreview: Bool = false) {
         self.pixelSize = pixelSize
         self.isPreview = isPreview
+        loadCloudSprites()
         generateStars(bounds: bounds)
         generateClouds(bounds: bounds)
+    }
+    
+    /// Carica tutti gli sprite delle nuvole da Assets
+    /// Naming convention: cloud_small.png, cloud.png, cloud_large.png
+    private func loadCloudSprites() {
+        let cloudNames = ["cloud_small", "cloud", "cloud_large"]
+        
+        for name in cloudNames {
+            if let sprite = MISpriteLoader.shared.loadSprite(named: name) {
+                cloudSprites[name] = sprite
+                NSLog("MIBackground: Loaded \(name) sprite")
+            }
+        }
+        
+        if cloudSprites.isEmpty {
+            NSLog("MIBackground: No cloud sprites found, using procedural clouds")
+        }
     }
     
     private func generateStars(bounds: CGRect) {
@@ -58,22 +83,33 @@ class MIBackground {
         // In preview, mostra solo 2 nuvole invece di 5
         let cloudCount = isPreview ? 2 : 5
         
+        // Nuvole di sfondo (cloud_small) - più alte, più lente
         for _ in 0..<cloudCount {
             cloudsBack.append(MICloud(
                 x: CGFloat.random(in: 0...bounds.width),
-                y: CGFloat.random(in: bounds.height * 0.5...bounds.height * 0.8),
-                width: CGFloat.random(in: 100...200),
-                type: Int.random(in: 0...1),
-                speed: 0.15
+                y: CGFloat.random(in: bounds.height * 0.6...bounds.height * 0.85),
+                speed: 0.15,
+                spriteType: "cloud_small"
             ))
         }
+        
+        // Nuvole medie (cloud) 
         for _ in 0..<3 {
+            cloudsBack.append(MICloud(
+                x: CGFloat.random(in: 0...bounds.width),
+                y: CGFloat.random(in: bounds.height * 0.5...bounds.height * 0.75),
+                speed: 0.25,
+                spriteType: "cloud"
+            ))
+        }
+        
+        // Nuvole in primo piano (cloud_large) - più basse, più veloci
+        for _ in 0..<2 {
             cloudsFront.append(MICloud(
                 x: CGFloat.random(in: 0...bounds.width),
-                y: CGFloat.random(in: bounds.height * 0.6...bounds.height * 0.9),
-                width: CGFloat.random(in: 200...400),
-                type: 2,
-                speed: 0.35
+                y: CGFloat.random(in: bounds.height * 0.55...bounds.height * 0.7),
+                speed: 0.35,
+                spriteType: "cloud_large"
             ))
         }
     }
@@ -189,53 +225,44 @@ class MIBackground {
     }
     
     private func drawCloud(context: CGContext, cloud: MICloud, bounds: CGRect, env: MIPalette.Environment) {
-        let totalWidth = bounds.width + cloud.width * 2
-        let wrappedX = ((cloud.x + cloud.width).truncatingRemainder(dividingBy: totalWidth)) - cloud.width
+        // Cerca lo sprite per questo tipo di nuvola
+        if let sprite = cloudSprites[cloud.spriteType] {
+            // Usa scala fissa per mantenere coerenza pixel art
+            let spriteWidth = CGFloat(sprite.width) * spriteScale
+            let totalWidth = bounds.width + spriteWidth * 2
+            let wrappedX = ((cloud.x + spriteWidth).truncatingRemainder(dividingBy: totalWidth)) - spriteWidth
+            
+            // Disegna lo sprite con scala uniforme
+            MISpriteLoader.drawSprite(sprite, in: context, at: wrappedX, y: cloud.y, scale: spriteScale, flipX: false)
+        } else if let fallbackSprite = cloudSprites["cloud"] {
+            // Fallback: usa cloud.png se lo sprite specifico non esiste
+            let spriteWidth = CGFloat(fallbackSprite.width) * spriteScale
+            let totalWidth = bounds.width + spriteWidth * 2
+            let wrappedX = ((cloud.x + spriteWidth).truncatingRemainder(dividingBy: totalWidth)) - spriteWidth
+            
+            MISpriteLoader.drawSprite(fallbackSprite, in: context, at: wrappedX, y: cloud.y, scale: spriteScale, flipX: false)
+        } else {
+            // Fallback finale: nuvola procedurale
+            drawCloudProcedural(context: context, cloud: cloud, bounds: bounds, env: env)
+        }
+    }
+    
+    /// Disegna una nuvola procedurale (fallback se nessuno sprite è disponibile)
+    private func drawCloudProcedural(context: CGContext, cloud: MICloud, bounds: CGRect, env: MIPalette.Environment) {
+        let w: CGFloat = 100  // Larghezza fissa per fallback
+        let totalWidth = bounds.width + w * 2
+        let wrappedX = ((cloud.x + w).truncatingRemainder(dividingBy: totalWidth)) - w
         
         let py = cloud.y
-        let w = cloud.width
         let h = w * 0.45
         
-        // Colori per sfumatura: base, highlight (bordi più chiari), shadow (interno più scuro)
         let baseColor = env.cloudColor.nsColor.cgColor
-        let highlightColor = env.cloudColor.lighter(by: 0.15).nsColor.cgColor
-        let shadowColor = env.cloudColor.darker(by: 0.1).nsColor.cgColor
-        
-        // Struttura a "bolle" multiple in stile Monkey Island
-        // Layer 1: Ombra interna (leggermente spostata in basso)
-        context.setFillColor(shadowColor)
-        let shadowOffset: CGFloat = h * 0.08
-        
-        // Bolla centrale grande (ombra)
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.25, y: py - shadowOffset, width: w * 0.5, height: h * 0.85))
-        // Bolle laterali (ombre)
-        context.fillEllipse(in: CGRect(x: wrappedX, y: py - h * 0.15 - shadowOffset, width: w * 0.4, height: h * 0.7))
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.6, y: py - h * 0.12 - shadowOffset, width: w * 0.4, height: h * 0.72))
-        
-        // Layer 2: Corpo principale della nuvola (colore base)
         context.setFillColor(baseColor)
         
-        // Bolla grande centrale
+        // Forma semplice a ellissi
         context.fillEllipse(in: CGRect(x: wrappedX + w * 0.25, y: py, width: w * 0.5, height: h * 0.9))
-        // Bolla sinistra bassa
         context.fillEllipse(in: CGRect(x: wrappedX, y: py - h * 0.15, width: w * 0.4, height: h * 0.7))
-        // Bolla destra bassa  
         context.fillEllipse(in: CGRect(x: wrappedX + w * 0.6, y: py - h * 0.12, width: w * 0.4, height: h * 0.72))
-        // Bolla centrale superiore (fa la "gobba" principale)
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.3, y: py + h * 0.25, width: w * 0.4, height: h * 0.65))
-        // Piccola bolla extra a sinistra
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.08, y: py + h * 0.05, width: w * 0.28, height: h * 0.5))
-        // Piccola bolla extra a destra
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.65, y: py + h * 0.08, width: w * 0.3, height: h * 0.52))
-        
-        // Layer 3: Highlight sui bordi superiori (effetto luce dal sole)
-        context.setFillColor(highlightColor)
-        
-        // Highlight sulla gobba principale
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.35, y: py + h * 0.45, width: w * 0.3, height: h * 0.35))
-        // Piccoli highlight sulle bolle laterali
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.05, y: py + h * 0.15, width: w * 0.18, height: h * 0.28))
-        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.72, y: py + h * 0.18, width: w * 0.18, height: h * 0.28))
     }
 }
 
