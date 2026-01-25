@@ -63,3 +63,5 @@ extract_guybrush_sprites.py
 
 # Bundle compilato (ricostruibile con ./install.sh)
 PixelParallax.saver/
+# Release builds (creati con ./create_release.sh)
+releases/
