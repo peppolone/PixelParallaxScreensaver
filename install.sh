@@ -27,6 +27,7 @@ fi
 # Source files
 SWIFT_FILES=(
     "$SOURCE_DIR/MISpriteLoader.swift"
+    "$SOURCE_DIR/MIConfigureSheetController.swift"
     "$SOURCE_DIR/PixelParallaxView.swift"
     "$SOURCE_DIR/MIScenery.swift"
     "$SOURCE_DIR/MICharacters.swift"

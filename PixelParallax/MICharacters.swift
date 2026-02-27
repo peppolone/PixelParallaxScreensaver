@@ -61,11 +61,7 @@ class MICharacters {
     
     /// Configura i personaggi iniziali
     private func setupCharacters(bounds: CGRect) {
-        // Per ora nessun personaggio - aggiungi i tuoi qui!
-        // Quando avrai creato sprite in Aseprite, decommenta e modifica:
-        
-        /*
-        // Esempio: aggiungi un eroe
+        // Aggiungi un eroe se gli sprite sono disponibili
         if characterSprites["hero"] != nil {
             characters.append(MIPixelCharacter(
                 x: bounds.width * 0.3,
@@ -75,8 +71,17 @@ class MICharacters {
                 walkPhase: 0,
                 spriteType: "hero"
             ))
+            
+            // Aggiungiamo un altro personaggio che cammina nella direzione opposta
+            characters.append(MIPixelCharacter(
+                x: bounds.width * 0.8,
+                z: 0.8, // Più lontano
+                speed: 15.0,
+                direction: -1.0,
+                walkPhase: 0,
+                spriteType: "hero" // Usiamo lo stesso tipo per ora
+            ))
         }
-        */
     }
     
     /// Chiamato ogni frame per aggiornare posizioni
@@ -98,6 +103,8 @@ class MICharacters {
     
     /// Disegna tutti i personaggi
     func drawAll(context: CGContext, bounds: CGRect) {
+        guard MIConfigureSheetController.shared.areCharactersEnabled else { return }
+        
         let beachY = bounds.height * 0.08
         
         for character in characters {

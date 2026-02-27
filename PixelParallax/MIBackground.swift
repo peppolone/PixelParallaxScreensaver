@@ -159,62 +159,53 @@ class MIBackground {
     
     func drawCelestialBody(context: CGContext, bounds: CGRect, env: MIPalette.Environment, cycleTime: CGFloat = 0.5) {
         // cycleTime: 0.0-1.0 rappresenta il ciclo completo giorno/notte
-        // Usiamo funzioni trigonometriche per movimento fluido
         
         let horizonY = bounds.height * 0.35  // Linea dell'orizzonte
         let maxHeight = bounds.height * 0.9  // Altezza massima
+        let belowHorizon = bounds.height * 0.15  // Quanto scende sotto l'orizzonte
         let radius: CGFloat = 40.0 * (pixelSize / 2.0)
         
-        // Il sole è visibile da 0.25 a 0.75 (metà superiore del ciclo)
-        // La luna è visibile da 0.75 a 1.25 (0.75 a 1.0 + 0.0 a 0.25)
+        // Il sole è visibile da 0.15 a 0.85 (più tempo per attraversare l'orizzonte)
+        // La luna è visibile da 0.90 a 1.00 + 0.00 a 0.10
         
-        let isDay = cycleTime >= 0.2 && cycleTime <= 0.8
+        let isDay = cycleTime >= 0.15 && cycleTime <= 0.85
         
         if isDay {
-            // SOLE: movimento ad arco continuo
-            // Mappiamo 0.2-0.8 su 0-π per un arco completo
-            let sunProgress = (cycleTime - 0.2) / 0.6  // 0 -> 1
+            // SOLE: movimento ad arco che attraversa completamente l'orizzonte
+            let sunProgress = (cycleTime - 0.15) / 0.70  // 0 -> 1
             
-            // X: da sinistra (0.1) a destra (0.9)
-            let sunX = bounds.width * (0.1 + sunProgress * 0.8)
+            // X: da sinistra a destra
+            let sunX = bounds.width * (0.05 + sunProgress * 0.90)
             
-            // Y: arco parabolico usando sin
-            let sunY = horizonY + sin(sunProgress * .pi) * (maxHeight - horizonY)
+            // Y: arco parabolico che va SOTTO l'orizzonte all'inizio e alla fine
+            // sin(0) = 0, sin(pi/2) = 1, sin(pi) = 0
+            // Modifichiamo per far partire e finire sotto l'orizzonte
+            let arcProgress = sunProgress * .pi  // 0 -> pi
+            let sunHeight = sin(arcProgress) * (maxHeight - horizonY + belowHorizon)
+            let sunY = (horizonY - belowHorizon) + sunHeight
             
-            // Dissolvenza leggera vicino all'orizzonte (minimo 80% opacità)
-            let fadeDistance: CGFloat = 0.05
-            var alpha: CGFloat = 1.0
-            if sunProgress < fadeDistance {
-                alpha = 0.8 + (sunProgress / fadeDistance) * 0.2
-            } else if sunProgress > (1.0 - fadeDistance) {
-                alpha = 0.8 + ((1.0 - sunProgress) / fadeDistance) * 0.2
-            }
+            // Nessuna dissolvenza - il sole è sempre visibile finché non è completamente sotto
+            let alpha: CGFloat = sunY > horizonY * 0.2 ? 1.0 : max(0, sunY / (horizonY * 0.2))
             
             drawCelestialBodyAt(context: context, cx: sunX, cy: sunY, radius: radius, env: env, isMoon: false, alpha: alpha)
-        } else {
-            // LUNA: movimento ad arco continuo durante la notte
-            // Mappiamo la notte (0.8-1.0 e 0.0-0.2) su 0-π
+        } else if cycleTime >= 0.90 || cycleTime <= 0.10 {
+            // LUNA: appare dopo che il sole è completamente scomparso
             var moonProgress: CGFloat
-            if cycleTime >= 0.8 {
-                moonProgress = (cycleTime - 0.8) / 0.4  // 0.8-1.0 → 0-0.5
+            if cycleTime >= 0.90 {
+                moonProgress = (cycleTime - 0.90) / 0.20  // 0.90-1.0 → 0-0.5
             } else {
-                moonProgress = 0.5 + (cycleTime / 0.4)  // 0.0-0.2 → 0.5-1.0
+                moonProgress = 0.5 + (cycleTime / 0.20)  // 0.0-0.10 → 0.5-1.0
             }
+            moonProgress = max(0, min(1, moonProgress))
             
             // X: da sinistra a destra
             let moonX = bounds.width * (0.1 + moonProgress * 0.8)
             
             // Y: arco parabolico
-            let moonY = horizonY + sin(moonProgress * .pi) * (maxHeight - horizonY)
+            let moonHeight = sin(moonProgress * .pi) * (maxHeight - horizonY + belowHorizon)
+            let moonY = (horizonY - belowHorizon) + moonHeight
             
-            // Dissolvenza leggera vicino all'orizzonte (minimo 80% opacità)
-            let fadeDistance: CGFloat = 0.05
-            var alpha: CGFloat = 1.0
-            if moonProgress < fadeDistance {
-                alpha = 0.8 + (moonProgress / fadeDistance) * 0.2
-            } else if moonProgress > (1.0 - fadeDistance) {
-                alpha = 0.8 + ((1.0 - moonProgress) / fadeDistance) * 0.2
-            }
+            let alpha: CGFloat = moonY > horizonY * 0.2 ? 1.0 : max(0, moonY / (horizonY * 0.2))
             
             drawCelestialBodyAt(context: context, cx: moonX, cy: moonY, radius: radius, env: env, isMoon: true, alpha: alpha)
         }
@@ -291,6 +282,39 @@ class MIBackground {
         context.restoreGState()
     }
     
+    func drawMountainReflection(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
+        let yBase = bounds.height * 0.35
+        
+        let wrap = bounds.width + 200
+        var x = -mountainOffset.truncatingRemainder(dividingBy: wrap)
+        if x > 0 { x -= wrap }
+        
+        context.saveGState()
+        
+        // CLIP FIRST BEFORE FLIPPING
+        context.clip(to: CGRect(x: 0, y: 0, width: bounds.width, height: yBase))
+
+        // Reflection translation: flip vertically around the horizon
+        context.translateBy(x: 0, y: yBase)
+        context.scaleBy(x: 1.0, y: -0.6)  // squish
+        
+        // Shear to simulate gentle waves as in the ship fallback
+        var transform = CGAffineTransform.identity
+        transform.c = 0.05 * sin(CGFloat(Date().timeIntervalSince1970) * 2.0)
+        context.concatenate(transform)
+        
+        context.translateBy(x: 0, y: -yBase)
+        
+        // Slightly dimmer alpha for reflections
+        let isDark = env.skyTop.r < 0.3 && env.skyTop.g < 0.3
+        context.setAlpha(isDark ? 0.3 : 0.15)
+        
+        drawSingleMountainChain(context: context, xOffset: x, yBase: yBase, bounds: bounds, env: env)
+        drawSingleMountainChain(context: context, xOffset: x + wrap, yBase: yBase, bounds: bounds, env: env)
+        
+        context.restoreGState()
+    }
+
     func drawClouds(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
         for cloud in cloudsBack {
             drawCloud(context: context, cloud: cloud, bounds: bounds, env: env)

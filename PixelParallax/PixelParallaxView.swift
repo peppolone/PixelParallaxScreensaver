@@ -76,6 +76,15 @@ import ScreenSaver
         weather = MIWeather(pixelSize: pixelSize, bounds: bounds, isPreview: isInPreview)
     }
     
+    // MARK: - Configuration
+    override var hasConfigureSheet: Bool {
+        return true
+    }
+    
+    override var configureSheet: NSWindow? {
+        return MIConfigureSheetController.shared.configureSheet()
+    }
+    
     override var wantsUpdateLayer: Bool {
         return true
     }
@@ -163,9 +172,13 @@ import ScreenSaver
         background.drawMountains(context: context, bounds: bounds, env: currentEnv)
         background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         
-        // MIScenery - test bonfire
-        scenery.drawBeach(context: context, bounds: bounds, env: currentEnv)
+        // MIScenery
+        scenery.drawBeachBackground(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawMonkeyIsland(context: context, bounds: bounds, env: currentEnv)
         scenery.drawSea(context: context, bounds: bounds, env: currentEnv)
+        background.drawMountainReflection(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawMonkeyIslandReflection(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawSinuousBeachForeground(context: context, bounds: bounds, env: currentEnv)
         scenery.drawShip(context: context, bounds: bounds, env: currentEnv)
         
         scenery.drawBonfire(context: context, bounds: bounds, env: currentEnv)
@@ -270,22 +283,17 @@ import ScreenSaver
         background.drawMountains(context: context, bounds: bounds, env: currentEnv)
         background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         
-        scenery.drawBeach(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawBeachBackground(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawMonkeyIsland(context: context, bounds: bounds, env: currentEnv)
         scenery.drawSea(context: context, bounds: bounds, env: currentEnv)
+        background.drawMountainReflection(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawMonkeyIslandReflection(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawSinuousBeachForeground(context: context, bounds: bounds, env: currentEnv)
         scenery.drawShip(context: context, bounds: bounds, env: currentEnv)
         
         scenery.drawBonfire(context: context, bounds: bounds, env: currentEnv)
         characters.drawAll(context: context, bounds: bounds)
         scenery.drawPalms(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawFireflies(context: context, bounds: bounds, env: currentEnv)
-        weather.draw(context: context, bounds: bounds, env: currentEnv)
-        drawScanlines(context: context, bounds: bounds)
-        drawVignette(context: context, bounds: bounds)
-        
-        context.saveGState()
-        characters.drawAll(context: context, bounds: bounds)
-        context.restoreGState()
-        
         scenery.drawFireflies(context: context, bounds: bounds, env: currentEnv)
         weather.draw(context: context, bounds: bounds, env: currentEnv)
         
@@ -388,7 +396,11 @@ class MIWeather {
     func update(deltaTime: TimeInterval) {
         timeSinceToggle += deltaTime
         
-        if timeSinceToggle > Double.random(in: 30...60) {
+        let rainEnabled = MIConfigureSheetController.shared.isRainEnabled
+        if !rainEnabled {
+            isRaining = false
+            timeSinceToggle = 0
+        } else if timeSinceToggle > Double.random(in: 30...60) {
             isRaining.toggle()
             timeSinceToggle = 0
         }
