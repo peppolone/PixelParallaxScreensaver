@@ -23,6 +23,7 @@ Experience a beautiful side-scrolling **pixel-art beach scene** featuring dynami
 | 🌅 **Dynamic Day/Night Cycle** | Sky gradients smoothly transition: Night → Sunrise → Day → Sunset |
 | 🌧️ **Weather System** | Random rain storms with realistic wind physics |
 | 🚶 **Custom Characters** | Add your own pixel-art characters with walk animations |
+| 🌊 **Water Reflections** | Real-time distorted reflections for horizon objects |
 | 🏝️ **Parallax Scrolling** | Multiple layers create depth: Background, Ships, Waves, Beach, Foreground Palms |
 | ⚡ **60fps Performance** | Optimized for smooth animation with minimal CPU/GPU usage |
 
