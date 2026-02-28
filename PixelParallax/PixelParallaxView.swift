@@ -26,6 +26,16 @@ import ScreenSaver
     private var renderTimeSamplesMs: [Double] = []
     private var approxFramebufferBytesPerFrame: Int = 0
     private let deviceColorSpace = CGColorSpaceCreateDeviceRGB()
+    private let scanlineColor = NSColor.black.withAlphaComponent(0.15).cgColor
+    private lazy var vignetteGradient: CGGradient? = {
+        let gradientLocations: [CGFloat] = [0.0, 0.8, 1.0]
+        let gradientColors = [
+            NSColor.clear.cgColor,
+            NSColor.black.withAlphaComponent(0.4).cgColor,
+            NSColor.black.cgColor
+        ] as CFArray
+        return CGGradient(colorsSpace: deviceColorSpace, colors: gradientColors, locations: gradientLocations)
+    }()
     
     // MARK: - Layer-backed drawing
     private var drawingLayer: CALayer!
@@ -340,7 +350,7 @@ import ScreenSaver
     private func drawScanlines(context: CGContext, bounds: CGRect) {
         context.saveGState()
         context.setBlendMode(.overlay)
-        context.setFillColor(NSColor.black.withAlphaComponent(0.15).cgColor)
+        context.setFillColor(scanlineColor)
         for y in stride(from: 0, through: bounds.height, by: 4) {
             context.fill(CGRect(x: 0, y: y, width: bounds.width, height: 2))
         }
@@ -348,14 +358,7 @@ import ScreenSaver
     }
     
     private func drawVignette(context: CGContext, bounds: CGRect) {
-        let gradientLocations: [CGFloat] = [0.0, 0.8, 1.0]
-        let gradientColors = [
-            NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(0.4).cgColor,
-            NSColor.black.cgColor
-        ] as CFArray
-        
-        guard let gradient = CGGradient(colorsSpace: deviceColorSpace, colors: gradientColors, locations: gradientLocations) else { return }
+        guard let gradient = vignetteGradient else { return }
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let radius = max(bounds.width, bounds.height) * 0.75
         
