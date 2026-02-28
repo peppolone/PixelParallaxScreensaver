@@ -300,7 +300,7 @@ class MIBackground {
         
         // Shear to simulate gentle waves as in the ship fallback
         var transform = CGAffineTransform.identity
-        transform.c = 0.05 * sin(CGFloat(Date().timeIntervalSince1970) * 2.0)
+        transform.c = 0.05 * sin(time * 2.0)
         context.concatenate(transform)
         
         context.translateBy(x: 0, y: -yBase)
