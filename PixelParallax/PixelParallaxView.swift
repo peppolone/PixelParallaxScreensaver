@@ -25,6 +25,7 @@ import ScreenSaver
     private var frameTimeSamplesMs: [Double] = []
     private var renderTimeSamplesMs: [Double] = []
     private var approxFramebufferBytesPerFrame: Int = 0
+    private let deviceColorSpace = CGColorSpaceCreateDeviceRGB()
     
     // MARK: - Layer-backed drawing
     private var drawingLayer: CALayer!
@@ -153,14 +154,13 @@ import ScreenSaver
         let bytesPerRow = width * 4
         approxFramebufferBytesPerFrame = bytesPerRow * height
         
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
             width: width,
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: bytesPerRow,
-            space: colorSpace,
+            space: deviceColorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else {
             NSLog("PixelParallaxView: Failed to create CGContext!")
@@ -213,14 +213,13 @@ import ScreenSaver
         
         guard width > 0 && height > 0 else { return }
         
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
             width: width,
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: width * 4,
-            space: colorSpace,
+            space: deviceColorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else {
             NSLog("PixelParallaxView: Failed to create CGContext!")
@@ -246,7 +245,7 @@ import ScreenSaver
             bottomColor = NSColor(red: 0.9, green: 0.6, blue: 0.4, alpha: 1.0).cgColor
         }
         
-        let gradient = CGGradient(colorsSpace: colorSpace, colors: [bottomColor, topColor] as CFArray, locations: [0, 1])!
+        let gradient = CGGradient(colorsSpace: deviceColorSpace, colors: [bottomColor, topColor] as CFArray, locations: [0, 1])!
         context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: 0, y: CGFloat(height)), options: [])
         
         // Crea immagine e assegna al layer
@@ -264,14 +263,13 @@ import ScreenSaver
         
         guard width > 0 && height > 0 else { return }
         
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
             data: nil,
             width: width,
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: width * 4,
-            space: colorSpace,
+            space: deviceColorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else {
             NSLog("PixelParallaxView: Failed to create CGContext!")
@@ -357,7 +355,7 @@ import ScreenSaver
             NSColor.black.cgColor
         ] as CFArray
         
-        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: gradientColors, locations: gradientLocations) else { return }
+        guard let gradient = CGGradient(colorsSpace: deviceColorSpace, colors: gradientColors, locations: gradientLocations) else { return }
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let radius = max(bounds.width, bounds.height) * 0.75
         
