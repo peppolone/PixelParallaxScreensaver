@@ -241,7 +241,6 @@ class MIScenery {
         // MARK: - Draw Sea
     
     func drawSea(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
-        let beachTop = bounds.height * beachHeight
         let horizonY = bounds.height * 0.35
         
         let colors = [env.seaTop.nsColor.cgColor, env.seaBottom.nsColor.cgColor] as CFArray

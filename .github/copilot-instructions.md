@@ -1,6 +1,6 @@
 # Scenery & Drawing Instructions
-1. THE SEA IS PERFECT: DO NOT TOUCH `drawSea`, `drawMonkeyIslandReflection`, or any code related to the sea generation in `MIScenery.swift` under any circumstances. It is considered final and perfect by the user. 
-2. Make sure that when refactoring `MIScenery.swift` the sea logic remains absolutely untouched.
+1. THE SEA LOOK IS PERFECT: preserve the visual output of `drawSea`, `drawMonkeyIslandReflection`, and sea-generation logic in `MIScenery.swift`.
+2. Non-visual maintenance is allowed (warnings cleanup, refactor, safety/performance cleanup) only if it does not change sea rendering behavior or appearance.
 
 # Development & Debugging Rules
 1. **Compilation Validation**: Always run `./install.sh` after making Swift changes to verify that the project compiles on both x86_64 and arm64. If an error occurs, analyze the error output and fix the Swift files immediately before reporting back to the user.

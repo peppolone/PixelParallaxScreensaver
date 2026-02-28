@@ -19,6 +19,13 @@ import ScreenSaver
     private var frameCount: Int = 0
     private var isInPreview: Bool = false
     
+    // MARK: - Benchmark
+    private let benchmarkWindowSize: Int = 300
+    private let benchmarkLogCadence: Int = 300
+    private var frameTimeSamplesMs: [Double] = []
+    private var renderTimeSamplesMs: [Double] = []
+    private var approxFramebufferBytesPerFrame: Int = 0
+    
     // MARK: - Layer-backed drawing
     private var drawingLayer: CALayer!
     
@@ -115,6 +122,7 @@ import ScreenSaver
     }
     
     override func animateOneFrame() {
+        let frameStartTime = CACurrentMediaTime()
         frameCount += 1
         let currentTime = CACurrentMediaTime()
         let deltaTime = lastTime > 0 ? CGFloat(currentTime - lastTime) : 0.033
@@ -130,12 +138,11 @@ import ScreenSaver
         characters.update(deltaTime: deltaTime, bounds: bounds)
         weather.update(deltaTime: TimeInterval(deltaTime))
         
-        // TEST: Provo solo MIBackground.drawSky
+        let renderStartTime = CACurrentMediaTime()
         renderWithBackground()
-        
-        if frameCount % 30 == 0 {
-            NSLog("PixelParallaxView animateOneFrame #\(frameCount)")
-        }
+        let renderDurationMs = (CACurrentMediaTime() - renderStartTime) * 1000.0
+        let frameDurationMs = (CACurrentMediaTime() - frameStartTime) * 1000.0
+        recordBenchmark(frameDurationMs: frameDurationMs, renderDurationMs: renderDurationMs)
     }
     
     private func renderWithBackground() {
@@ -143,6 +150,8 @@ import ScreenSaver
         let height = Int(bounds.height)
         
         guard width > 0 && height > 0 else { return }
+        let bytesPerRow = width * 4
+        approxFramebufferBytesPerFrame = bytesPerRow * height
         
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(
@@ -150,7 +159,7 @@ import ScreenSaver
             width: width,
             height: height,
             bitsPerComponent: 8,
-            bytesPerRow: width * 4,
+            bytesPerRow: bytesPerRow,
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else {
@@ -353,6 +362,61 @@ import ScreenSaver
         let radius = max(bounds.width, bounds.height) * 0.75
         
         context.drawRadialGradient(gradient, startCenter: center, startRadius: radius * 0.6, endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation])
+    }
+    
+    private func recordBenchmark(frameDurationMs: Double, renderDurationMs: Double) {
+        frameTimeSamplesMs.append(frameDurationMs)
+        renderTimeSamplesMs.append(renderDurationMs)
+        
+        if frameTimeSamplesMs.count > benchmarkWindowSize {
+            frameTimeSamplesMs.removeFirst(frameTimeSamplesMs.count - benchmarkWindowSize)
+        }
+        if renderTimeSamplesMs.count > benchmarkWindowSize {
+            renderTimeSamplesMs.removeFirst(renderTimeSamplesMs.count - benchmarkWindowSize)
+        }
+        
+        if frameCount % benchmarkLogCadence == 0 {
+            logBenchmarkSummary()
+        }
+    }
+    
+    private func logBenchmarkSummary() {
+        guard !frameTimeSamplesMs.isEmpty, !renderTimeSamplesMs.isEmpty else { return }
+        
+        let avgFrameMs = frameTimeSamplesMs.reduce(0, +) / Double(frameTimeSamplesMs.count)
+        let avgRenderMs = renderTimeSamplesMs.reduce(0, +) / Double(renderTimeSamplesMs.count)
+        let p95FrameMs = percentile(frameTimeSamplesMs, p: 0.95)
+        let approxFps = avgFrameMs > 0 ? 1000.0 / avgFrameMs : 0
+        let framebufferMB = Double(approxFramebufferBytesPerFrame) / (1024.0 * 1024.0)
+        let approxFrameBufferThroughputMBs = framebufferMB * approxFps
+        
+        let recommendation: String
+        if p95FrameMs <= 16.6 {
+            recommendation = "candidate-60fps"
+        } else if p95FrameMs <= 33.3 {
+            recommendation = "stable-30fps"
+        } else {
+            recommendation = "optimize-before-30fps"
+        }
+        
+        let avgFrameText = String(format: "%.2f", avgFrameMs)
+        let p95Text = String(format: "%.2f", p95FrameMs)
+        let avgRenderText = String(format: "%.2f", avgRenderMs)
+        let fpsText = String(format: "%.1f", approxFps)
+        let framebufferText = String(format: "%.2f", framebufferMB)
+        let throughputText = String(format: "%.1f", approxFrameBufferThroughputMBs)
+        
+        NSLog(
+            "PixelParallax Benchmark frames=\(frameTimeSamplesMs.count) avgFrame=\(avgFrameText)ms p95=\(p95Text)ms avgRender=\(avgRenderText)ms fps=\(fpsText) fb=\(framebufferText)MB alloc=\(throughputText)MB/s rec=\(recommendation)"
+        )
+    }
+    
+    private func percentile(_ values: [Double], p: Double) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let sorted = values.sorted()
+        let clampedPercentile = max(0.0, min(1.0, p))
+        let index = Int((Double(sorted.count - 1) * clampedPercentile).rounded())
+        return sorted[index]
     }
 }
 
