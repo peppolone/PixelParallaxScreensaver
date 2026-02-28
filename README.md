@@ -136,6 +136,26 @@ After installation, you can preview it in System Settings or use:
 open /System/Library/PreferencePanes/DesktopScreenEffectsPref.prefPane
 ```
 
+### Runtime Benchmark (Frame Time)
+
+The screensaver now prints periodic benchmark summaries every 300 frames from `PixelParallaxView`:
+
+```text
+PixelParallax Benchmark frames=300 avgFrame=...ms p95=...ms avgRender=...ms fps=... fb=...MB alloc=...MB/s rec=...
+```
+
+Use the recommendation field as a quick guide:
+
+- `rec=candidate-60fps` → frame pacing is healthy for evaluating 60fps
+- `rec=stable-30fps` → 30fps is stable and safe baseline
+- `rec=optimize-before-30fps` → optimize render path before raising frame rate
+
+To inspect logs while testing:
+
+```bash
+log stream --predicate 'eventMessage CONTAINS "PixelParallax Benchmark"' --style compact
+```
+
 ---
 
 ## 🤝 Contributing

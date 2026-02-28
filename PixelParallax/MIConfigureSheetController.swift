@@ -9,11 +9,9 @@ class MIConfigureSheetController: NSObject {
     private var enableRainCheckbox: NSButton!
     private var enableCharactersCheckbox: NSButton!
     
-    // Keys for standardUserDefaults which ScreenSaver Defaults uses
-    private let bundleIdentifier = "com.peppolone.PixelParallax"
-    
     private var defaults: ScreenSaverDefaults? {
-        return ScreenSaverDefaults(forModuleWithName: bundleIdentifier)
+        let moduleIdentifier = Bundle(for: PixelParallaxView.self).bundleIdentifier ?? "com.peppolone.PixelParallax"
+        return ScreenSaverDefaults(forModuleWithName: moduleIdentifier)
     }
     
     var isRainEnabled: Bool {
