@@ -144,6 +144,12 @@ The screensaver now prints periodic benchmark summaries every 300 frames from `P
 PixelParallax Benchmark frames=300 avgFrame=...ms p95=...ms avgRender=...ms fps=... fb=...MB alloc=...MB/s rec=...
 ```
 
+For deeper profiling, it also emits sampled per-layer timings every 120 frames:
+
+```text
+PixelParallax LayerProfile frame=... ctx=...ms skyBg=...ms mid=...ms actors=...ms postFx=...ms commit=...ms total=...ms
+```
+
 Use the recommendation field as a quick guide:
 
 - `rec=candidate-60fps` → frame pacing is healthy for evaluating 60fps
@@ -154,6 +160,12 @@ To inspect logs while testing:
 
 ```bash
 log stream --predicate 'eventMessage CONTAINS "PixelParallax Benchmark"' --style compact
+```
+
+To inspect the deep layer profile stream:
+
+```bash
+log stream --predicate 'eventMessage CONTAINS "PixelParallax LayerProfile"' --style compact
 ```
 
 ---

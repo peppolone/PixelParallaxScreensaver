@@ -22,6 +22,7 @@ import ScreenSaver
     // MARK: - Benchmark
     private let benchmarkWindowSize: Int = 300
     private let benchmarkLogCadence: Int = 300
+    private let layerProfileCadence: Int = 120
     private var frameTimeSamplesMs: [Double] = []
     private var renderTimeSamplesMs: [Double] = []
     private var approxFramebufferBytesPerFrame: Int = 0
@@ -135,6 +136,7 @@ import ScreenSaver
     override func animateOneFrame() {
         let frameStartTime = CACurrentMediaTime()
         frameCount += 1
+        let shouldProfileLayers = frameCount % layerProfileCadence == 0
         let currentTime = CACurrentMediaTime()
         let deltaTime = lastTime > 0 ? CGFloat(currentTime - lastTime) : 0.033
         lastTime = currentTime
@@ -151,14 +153,14 @@ import ScreenSaver
         
         let renderStartTime = CACurrentMediaTime()
         autoreleasepool {
-            renderWithBackground()
+            renderWithBackground(profileLayers: shouldProfileLayers)
         }
         let renderDurationMs = (CACurrentMediaTime() - renderStartTime) * 1000.0
         let frameDurationMs = (CACurrentMediaTime() - frameStartTime) * 1000.0
         recordBenchmark(frameDurationMs: frameDurationMs, renderDurationMs: renderDurationMs)
     }
     
-    private func renderWithBackground() {
+    private func renderWithBackground(profileLayers: Bool = false) {
         let width = Int(bounds.width)
         let height = Int(bounds.height)
         
@@ -166,6 +168,7 @@ import ScreenSaver
         let bytesPerRow = width * 4
         approxFramebufferBytesPerFrame = bytesPerRow * height
         
+        let contextCreateStart = profileLayers ? CACurrentMediaTime() : 0
         guard let context = CGContext(
             data: nil,
             width: width,
@@ -178,6 +181,7 @@ import ScreenSaver
             NSLog("PixelParallaxView: Failed to create CGContext!")
             return
         }
+        let contextCreateMs = profileLayers ? (CACurrentMediaTime() - contextCreateStart) * 1000.0 : 0.0
         
         // Pixel art settings
         context.setShouldAntialias(false)
@@ -186,36 +190,56 @@ import ScreenSaver
         // Calculate environment
         let currentEnv = calculateEnvironment()
         
-        // MIBackground
-        background.drawSky(context: context, bounds: bounds, env: currentEnv)
-        background.drawStars(context: context, bounds: bounds, env: currentEnv)
-        background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
-        background.drawMountains(context: context, bounds: bounds, env: currentEnv)
-        background.drawClouds(context: context, bounds: bounds, env: currentEnv)
-        
-        // MIScenery
-        scenery.drawBeachBackground(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawMonkeyIsland(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawSea(context: context, bounds: bounds, env: currentEnv)
-        background.drawMountainReflection(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawMonkeyIslandReflection(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawSinuousBeachForeground(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawShip(context: context, bounds: bounds, env: currentEnv)
-        
-        scenery.drawBonfire(context: context, bounds: bounds, env: currentEnv)
-        characters.drawAll(context: context, bounds: bounds)
-        scenery.drawPalms(context: context, bounds: bounds, env: currentEnv)
-        scenery.drawFireflies(context: context, bounds: bounds, env: currentEnv)
-        weather.draw(context: context, bounds: bounds, env: currentEnv)
-        drawScanlines(context: context, bounds: bounds)
-        drawVignette(context: context, bounds: bounds)
-        
-        // Crea immagine e assegna al layer
-        if let image = context.makeImage() {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            drawingLayer?.contents = image
-            CATransaction.commit()
+        let skyBackgroundMs = profileSection(profileLayers) {
+            background.drawSky(context: context, bounds: bounds, env: currentEnv)
+            background.drawStars(context: context, bounds: bounds, env: currentEnv)
+            background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
+            background.drawMountains(context: context, bounds: bounds, env: currentEnv)
+            background.drawClouds(context: context, bounds: bounds, env: currentEnv)
+        }
+
+        let midgroundMs = profileSection(profileLayers) {
+            scenery.drawBeachBackground(context: context, bounds: bounds, env: currentEnv)
+            scenery.drawMonkeyIsland(context: context, bounds: bounds, env: currentEnv)
+            scenery.drawSea(context: context, bounds: bounds, env: currentEnv)
+            background.drawMountainReflection(context: context, bounds: bounds, env: currentEnv)
+            scenery.drawMonkeyIslandReflection(context: context, bounds: bounds, env: currentEnv)
+            scenery.drawSinuousBeachForeground(context: context, bounds: bounds, env: currentEnv)
+            scenery.drawShip(context: context, bounds: bounds, env: currentEnv)
+        }
+
+        let actorsWeatherMs = profileSection(profileLayers) {
+            scenery.drawBonfire(context: context, bounds: bounds, env: currentEnv)
+            characters.drawAll(context: context, bounds: bounds)
+            scenery.drawPalms(context: context, bounds: bounds, env: currentEnv)
+            scenery.drawFireflies(context: context, bounds: bounds, env: currentEnv)
+            weather.draw(context: context, bounds: bounds, env: currentEnv)
+        }
+
+        let postFxMs = profileSection(profileLayers) {
+            drawScanlines(context: context, bounds: bounds)
+            drawVignette(context: context, bounds: bounds)
+        }
+
+        let commitMs = profileSection(profileLayers) {
+            if let image = context.makeImage() {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                drawingLayer?.contents = image
+                CATransaction.commit()
+            }
+        }
+
+        if profileLayers {
+            let sectionTotalMs = contextCreateMs + skyBackgroundMs + midgroundMs + actorsWeatherMs + postFxMs + commitMs
+            let contextText = String(format: "%.2f", contextCreateMs)
+            let skyText = String(format: "%.2f", skyBackgroundMs)
+            let midText = String(format: "%.2f", midgroundMs)
+            let actorsText = String(format: "%.2f", actorsWeatherMs)
+            let postFxText = String(format: "%.2f", postFxMs)
+            let commitText = String(format: "%.2f", commitMs)
+            let totalText = String(format: "%.2f", sectionTotalMs)
+            NSLog("PixelParallax LayerProfile frame=\(frameCount) ctx=\(contextText)ms skyBg=\(skyText)ms mid=\(midText)ms actors=\(actorsText)ms postFx=\(postFxText)ms commit=\(commitText)ms total=\(totalText)ms")
         }
     }
     
@@ -365,6 +389,18 @@ import ScreenSaver
         let radius = max(bounds.width, bounds.height) * 0.75
         
         context.drawRadialGradient(gradient, startCenter: center, startRadius: radius * 0.6, endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation])
+    }
+
+    @inline(__always)
+    private func profileSection(_ enabled: Bool, _ block: () -> Void) -> Double {
+        if !enabled {
+            block()
+            return 0
+        }
+
+        let start = CACurrentMediaTime()
+        block()
+        return (CACurrentMediaTime() - start) * 1000.0
     }
     
     private func recordBenchmark(frameDurationMs: Double, renderDurationMs: Double) {
