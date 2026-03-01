@@ -19,6 +19,33 @@ struct MICloud: Sendable {
 /// Gestisce il rendering del cielo, stelle, nuvole e elementi di sfondo
 /// NOTA: Questa classe deve essere usata solo dal main thread
 class MIBackground {
+
+    private struct RGBAKey: Equatable {
+        let r: Int
+        let g: Int
+        let b: Int
+        let a: Int
+    }
+
+    private struct ColorPairKey: Equatable {
+        let first: RGBAKey
+        let second: RGBAKey
+
+        init(first: NSColor, second: NSColor) {
+            self.first = MIBackground.quantizedRGBA(first)
+            self.second = MIBackground.quantizedRGBA(second)
+        }
+    }
+
+    private static func quantizedRGBA(_ color: NSColor) -> RGBAKey {
+        let rgb = color.usingColorSpace(.deviceRGB) ?? color
+        return RGBAKey(
+            r: Int((rgb.redComponent * 255).rounded()),
+            g: Int((rgb.greenComponent * 255).rounded()),
+            b: Int((rgb.blueComponent * 255).rounded()),
+            a: Int((rgb.alphaComponent * 255).rounded())
+        )
+    }
     
     private var stars: [MIStar] = []
     private var cloudsBack: [MICloud] = []
@@ -34,6 +61,9 @@ class MIBackground {
     
     private var starOffset: CGFloat = 0
     private var mountainOffset: CGFloat = 0
+    private let deviceColorSpace = CGColorSpaceCreateDeviceRGB()
+    private var cachedSkyGradient: (key: ColorPairKey, gradient: CGGradient)?
+    private var cachedCelestialGlowGradient: (key: ColorPairKey, gradient: CGGradient)?
     
     let pixelSize: CGFloat
     private var time: CGFloat = 0
@@ -112,12 +142,12 @@ class MIBackground {
                 spriteType: "cloud_large"
             ))
         }
+
     }
     
     func update(deltaTime: CGFloat) {
         time += deltaTime
         starOffset += 0.05
-        mountainOffset += 0.2
         
         for i in 0..<stars.count {
             stars[i].twinklePhase += stars[i].twinkleSpeed * deltaTime
@@ -132,9 +162,7 @@ class MIBackground {
     }
     
     func drawSky(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
-        let colors = [env.skyTop.nsColor.cgColor, env.skyBottom.nsColor.cgColor] as CFArray
-        let locations: [CGFloat] = [0.0, 1.0]
-        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: locations) else { return }
+        guard let gradient = skyGradient(top: env.skyTop.nsColor, bottom: env.skyBottom.nsColor) else { return }
         context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: bounds.height), end: CGPoint(x: 0, y: 0), options: [])
     }
     
@@ -188,13 +216,13 @@ class MIBackground {
             let alpha: CGFloat = sunY > horizonY * 0.2 ? 1.0 : max(0, sunY / (horizonY * 0.2))
             
             drawCelestialBodyAt(context: context, cx: sunX, cy: sunY, radius: radius, env: env, isMoon: false, alpha: alpha)
-        } else if cycleTime >= 0.90 || cycleTime <= 0.10 {
-            // LUNA: appare dopo che il sole è completamente scomparso
+        } else if cycleTime >= 0.65 || cycleTime <= 0.35 {
+            // LUNA: stessa durata di traversata del sole (0.70) per velocità coerente
             var moonProgress: CGFloat
-            if cycleTime >= 0.90 {
-                moonProgress = (cycleTime - 0.90) / 0.20  // 0.90-1.0 → 0-0.5
+            if cycleTime >= 0.65 {
+                moonProgress = (cycleTime - 0.65) / 0.70
             } else {
-                moonProgress = 0.5 + (cycleTime / 0.20)  // 0.0-0.10 → 0.5-1.0
+                moonProgress = (cycleTime + 0.35) / 0.70
             }
             moonProgress = max(0, min(1, moonProgress))
             
@@ -221,9 +249,7 @@ class MIBackground {
         context.saveGState()
         context.setBlendMode(.screen)
         let glowRadius = radius * 3.0
-        let glowColors = [env.sunMoonGlow.nsColor.cgColor, env.sunMoonGlow.nsColor.withAlphaComponent(0).cgColor] as CFArray
-        let locations: [CGFloat] = [0.0, 1.0]
-        if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: glowColors, locations: locations) {
+        if let gradient = celestialGlowGradient(baseColor: env.sunMoonGlow.nsColor) {
             context.drawRadialGradient(gradient, startCenter: CGPoint(x: cx, y: cy), startRadius: radius * 0.5, endCenter: CGPoint(x: cx, y: cy), endRadius: glowRadius, options: .drawsBeforeStartLocation)
         }
         context.restoreGState()
@@ -243,6 +269,33 @@ class MIBackground {
         
         context.restoreGState()
     }
+
+    private func skyGradient(top: NSColor, bottom: NSColor) -> CGGradient? {
+        let key = ColorPairKey(first: top, second: bottom)
+        if let cached = cachedSkyGradient, cached.key == key {
+            return cached.gradient
+        }
+
+        let colors = [top.cgColor, bottom.cgColor] as CFArray
+        let locations: [CGFloat] = [0.0, 1.0]
+        guard let gradient = CGGradient(colorsSpace: deviceColorSpace, colors: colors, locations: locations) else { return nil }
+        cachedSkyGradient = (key, gradient)
+        return gradient
+    }
+
+    private func celestialGlowGradient(baseColor: NSColor) -> CGGradient? {
+        let transparent = baseColor.withAlphaComponent(0)
+        let key = ColorPairKey(first: baseColor, second: transparent)
+        if let cached = cachedCelestialGlowGradient, cached.key == key {
+            return cached.gradient
+        }
+
+        let colors = [baseColor.cgColor, transparent.cgColor] as CFArray
+        let locations: [CGFloat] = [0.0, 1.0]
+        guard let gradient = CGGradient(colorsSpace: deviceColorSpace, colors: colors, locations: locations) else { return nil }
+        cachedCelestialGlowGradient = (key, gradient)
+        return gradient
+    }
     
     func drawMountains(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
         let yBase = bounds.height * 0.35
@@ -253,10 +306,27 @@ class MIBackground {
         
         drawSingleMountainChain(context: context, xOffset: x, yBase: yBase, bounds: bounds, env: env)
         drawSingleMountainChain(context: context, xOffset: x + wrap, yBase: yBase, bounds: bounds, env: env)
+
+        // Due layer piccoli a destra dell'isola principale
+        let rightLayerOneColor = env.distantIsland.nsColor.blended(withFraction: 0.2, of: .black) ?? env.distantIsland.nsColor
+        let rightLayerTwoColor = env.distantIsland.nsColor.blended(withFraction: 0.35, of: .black) ?? env.distantIsland.nsColor
+        drawRightMountainLayer(context: context, bounds: bounds, yBase: yBase, env: env, color: rightLayerOneColor, startXRatio: 0.86, widthRatio: 0.24, heightRatio: 0.09, shadeAlpha: 0.2)
+        drawRightMountainLayer(context: context, bounds: bounds, yBase: yBase, env: env, color: rightLayerTwoColor, startXRatio: 0.91, widthRatio: 0.2, heightRatio: 0.12, shadeAlpha: 0.16)
     }
     
-    private func drawSingleMountainChain(context: CGContext, xOffset: CGFloat, yBase: CGFloat, bounds: CGRect, env: MIPalette.Environment) {
-        context.setFillColor(env.distantIsland.nsColor.cgColor)
+    private func drawSingleMountainChain(
+        context: CGContext,
+        xOffset: CGFloat,
+        yBase: CGFloat,
+        bounds: CGRect,
+        env: MIPalette.Environment,
+        color: NSColor? = nil,
+        xScale: CGFloat = 1.0,
+        yScale: CGFloat = 1.0,
+        shadeAlpha: CGFloat = 0.3
+    ) {
+        let baseColor = color ?? env.distantIsland.nsColor
+        context.setFillColor(baseColor.cgColor)
         
         let points: [(CGFloat, CGFloat)] = [
             (0, 0), (100, 50), (250, 20), (400, 120), (600, 40), (800, 90), (1000, 10), (1200, 0)
@@ -266,17 +336,62 @@ class MIBackground {
         path.move(to: CGPoint(x: xOffset, y: yBase))
         
         for p in points {
-            path.addLine(to: CGPoint(x: xOffset + p.0 * (pixelSize/3), y: yBase + p.1 * (pixelSize/3)))
+            path.addLine(to: CGPoint(x: xOffset + p.0 * (pixelSize/3) * xScale, y: yBase + p.1 * (pixelSize/3) * yScale))
         }
         
-        path.addLine(to: CGPoint(x: xOffset + 1200 * (pixelSize/3), y: yBase))
+        path.addLine(to: CGPoint(x: xOffset + 1200 * (pixelSize/3) * xScale, y: yBase))
         path.closeSubpath()
         context.addPath(path)
         context.fillPath()
         
         context.saveGState()
         context.setBlendMode(.sourceAtop)
-        context.setFillColor(env.skyBottom.nsColor.withAlphaComponent(0.3).cgColor)
+        context.setFillColor(env.skyBottom.nsColor.withAlphaComponent(shadeAlpha).cgColor)
+        context.addPath(path)
+        context.fillPath()
+        context.restoreGState()
+    }
+
+    private func drawRightMountainLayer(
+        context: CGContext,
+        bounds: CGRect,
+        yBase: CGFloat,
+        env: MIPalette.Environment,
+        color: NSColor,
+        startXRatio: CGFloat,
+        widthRatio: CGFloat,
+        heightRatio: CGFloat,
+        shadeAlpha: CGFloat
+    ) {
+        let startX = bounds.width * startXRatio
+        let layerWidth = bounds.width * widthRatio
+        let layerHeight = bounds.height * heightRatio
+
+        let points: [(CGFloat, CGFloat)] = [
+            (0.0, 0.0),
+            (0.14, 0.35),
+            (0.32, 0.12),
+            (0.50, 0.55),
+            (0.71, 0.18),
+            (0.88, 0.28),
+            (1.0, 0.0)
+        ]
+
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: startX, y: yBase))
+        for point in points {
+            path.addLine(to: CGPoint(x: startX + point.0 * layerWidth, y: yBase + point.1 * layerHeight))
+        }
+        path.addLine(to: CGPoint(x: startX + layerWidth, y: yBase))
+        path.closeSubpath()
+
+        context.setFillColor(color.cgColor)
+        context.addPath(path)
+        context.fillPath()
+
+        context.saveGState()
+        context.setBlendMode(.sourceAtop)
+        context.setFillColor(env.skyBottom.nsColor.withAlphaComponent(shadeAlpha).cgColor)
         context.addPath(path)
         context.fillPath()
         context.restoreGState()
@@ -311,17 +426,20 @@ class MIBackground {
         
         drawSingleMountainChain(context: context, xOffset: x, yBase: yBase, bounds: bounds, env: env)
         drawSingleMountainChain(context: context, xOffset: x + wrap, yBase: yBase, bounds: bounds, env: env)
+
+        let rightLayerOneColor = env.distantIsland.nsColor.blended(withFraction: 0.2, of: .black) ?? env.distantIsland.nsColor
+        let rightLayerTwoColor = env.distantIsland.nsColor.blended(withFraction: 0.35, of: .black) ?? env.distantIsland.nsColor
+        drawRightMountainLayer(context: context, bounds: bounds, yBase: yBase, env: env, color: rightLayerOneColor, startXRatio: 0.86, widthRatio: 0.24, heightRatio: 0.09, shadeAlpha: 0.2)
+        drawRightMountainLayer(context: context, bounds: bounds, yBase: yBase, env: env, color: rightLayerTwoColor, startXRatio: 0.91, widthRatio: 0.2, heightRatio: 0.12, shadeAlpha: 0.16)
         
         context.restoreGState()
     }
 
     func drawClouds(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
-        for cloud in cloudsBack {
-            drawCloud(context: context, cloud: cloud, bounds: bounds, env: env)
-        }
-        for cloud in cloudsFront {
-            drawCloud(context: context, cloud: cloud, bounds: bounds, env: env)
-        }
+        // Nuvole disattivate temporaneamente su richiesta utente.
+        _ = context
+        _ = bounds
+        _ = env
     }
     
     private func drawCloud(context: CGContext, cloud: MICloud, bounds: CGRect, env: MIPalette.Environment) {
@@ -363,6 +481,49 @@ class MIBackground {
         context.fillEllipse(in: CGRect(x: wrappedX + w * 0.25, y: py, width: w * 0.5, height: h * 0.9))
         context.fillEllipse(in: CGRect(x: wrappedX, y: py - h * 0.15, width: w * 0.4, height: h * 0.7))
         context.fillEllipse(in: CGRect(x: wrappedX + w * 0.6, y: py - h * 0.12, width: w * 0.4, height: h * 0.72))
+    }
+
+    private func drawComparisonCloud(context: CGContext, cloud: MICloud, bounds: CGRect, env: MIPalette.Environment) {
+        if let sprite = cloudSprites["cloud"] ?? cloudSprites["cloud_small"] {
+            let compareScale = spriteScale * 0.9
+            let spriteWidth = CGFloat(sprite.width) * compareScale
+            let spriteHeight = CGFloat(sprite.height) * compareScale
+            let totalWidth = bounds.width + spriteWidth * 2
+            let wrappedX = ((cloud.x + spriteWidth).truncatingRemainder(dividingBy: totalWidth)) - spriteWidth
+
+            MISpriteLoader.drawSprite(sprite, in: context, at: wrappedX, y: cloud.y, scale: compareScale, flipX: false)
+
+            let highlight = env.cloudColor.nsColor.withAlphaComponent(0.26).cgColor
+            let softShade = env.skyBottom.nsColor.withAlphaComponent(0.16).cgColor
+            let px = max(1, pixelSize * 1.5)
+
+            context.setFillColor(highlight)
+            context.fill(CGRect(x: wrappedX + spriteWidth * 0.22, y: cloud.y + spriteHeight * 0.62, width: px * 5, height: px))
+            context.fill(CGRect(x: wrappedX + spriteWidth * 0.52, y: cloud.y + spriteHeight * 0.68, width: px * 4, height: px))
+
+            context.setFillColor(softShade)
+            context.fill(CGRect(x: wrappedX + spriteWidth * 0.18, y: cloud.y + spriteHeight * 0.2, width: px * 6, height: px))
+            context.fill(CGRect(x: wrappedX + spriteWidth * 0.5, y: cloud.y + spriteHeight * 0.26, width: px * 5, height: px))
+            return
+        }
+
+        let baseW: CGFloat = 96
+        let w = baseW + (cloud.y.truncatingRemainder(dividingBy: 24))
+        let h = w * 0.34
+        let totalWidth = bounds.width + w * 2
+        let wrappedX = ((cloud.x + w).truncatingRemainder(dividingBy: totalWidth)) - w
+        let py = cloud.y
+
+        let lightColor = env.cloudColor.nsColor.withAlphaComponent(0.72).cgColor
+        let shadowColor = env.skyBottom.nsColor.withAlphaComponent(0.2).cgColor
+
+        context.setFillColor(shadowColor)
+        context.fill(CGRect(x: wrappedX + w * 0.12, y: py - h * 0.08, width: w * 0.76, height: h * 0.42))
+
+        context.setFillColor(lightColor)
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.06, y: py, width: w * 0.28, height: h * 0.65))
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.28, y: py + h * 0.08, width: w * 0.34, height: h * 0.75))
+        context.fillEllipse(in: CGRect(x: wrappedX + w * 0.54, y: py, width: w * 0.30, height: h * 0.62))
     }
 }
 

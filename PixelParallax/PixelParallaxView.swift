@@ -18,6 +18,7 @@ import ScreenSaver
     private var cycleTime: TimeInterval = 0.5
     private var frameCount: Int = 0
     private var isInPreview: Bool = false
+    private var hasRenderedPreviewFrame: Bool = false
     
     // MARK: - Benchmark
     private let benchmarkWindowSize: Int = 300
@@ -37,6 +38,10 @@ import ScreenSaver
         ] as CFArray
         return CGGradient(colorsSpace: deviceColorSpace, colors: gradientColors, locations: gradientLocations)
     }()
+    private var cachedScanlineImage: CGImage?
+    private var cachedScanlineSize: CGSize = .zero
+    private var cachedVignetteImage: CGImage?
+    private var cachedVignetteSize: CGSize = .zero
     
     // MARK: - Layer-backed drawing
     private var drawingLayer: CALayer!
@@ -134,6 +139,10 @@ import ScreenSaver
     }
     
     override func animateOneFrame() {
+        if isInPreview && hasRenderedPreviewFrame {
+            return
+        }
+
         let frameStartTime = CACurrentMediaTime()
         frameCount += 1
         let shouldProfileLayers = frameCount % layerProfileCadence == 0
@@ -158,6 +167,10 @@ import ScreenSaver
         let renderDurationMs = (CACurrentMediaTime() - renderStartTime) * 1000.0
         let frameDurationMs = (CACurrentMediaTime() - frameStartTime) * 1000.0
         recordBenchmark(frameDurationMs: frameDurationMs, renderDurationMs: renderDurationMs)
+
+        if isInPreview {
+            hasRenderedPreviewFrame = true
+        }
     }
     
     private func renderWithBackground(profileLayers: Bool = false) {
@@ -190,36 +203,74 @@ import ScreenSaver
         // Calculate environment
         let currentEnv = calculateEnvironment()
         
-        let skyBackgroundMs = profileSection(profileLayers) {
+        let skyMs = profileSection(profileLayers) {
             background.drawSky(context: context, bounds: bounds, env: currentEnv)
+        }
+        let starsMs = profileSection(profileLayers) {
             background.drawStars(context: context, bounds: bounds, env: currentEnv)
+        }
+        let celestialMs = profileSection(profileLayers) {
             background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
+        }
+        let mountainsMs = profileSection(profileLayers) {
             background.drawMountains(context: context, bounds: bounds, env: currentEnv)
+        }
+        let cloudsMs = profileSection(profileLayers) {
             background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         }
 
-        let midgroundMs = profileSection(profileLayers) {
+        let beachBackgroundMs = profileSection(profileLayers) {
             scenery.drawBeachBackground(context: context, bounds: bounds, env: currentEnv)
+        }
+        let monkeyIslandMs = profileSection(profileLayers) {
             scenery.drawMonkeyIsland(context: context, bounds: bounds, env: currentEnv)
+        }
+        let seaMs = profileSection(profileLayers) {
             scenery.drawSea(context: context, bounds: bounds, env: currentEnv)
+        }
+        let seaCreaturesMs = profileSection(profileLayers) {
+            scenery.drawSeaCreatures(context: context, bounds: bounds, env: currentEnv)
+        }
+        let mountainReflectionMs = profileSection(profileLayers) {
             background.drawMountainReflection(context: context, bounds: bounds, env: currentEnv)
+        }
+        let monkeyReflectionMs = profileSection(profileLayers) {
             scenery.drawMonkeyIslandReflection(context: context, bounds: bounds, env: currentEnv)
+        }
+        let beachForegroundMs = profileSection(profileLayers) {
             scenery.drawSinuousBeachForeground(context: context, bounds: bounds, env: currentEnv)
+        }
+        let shipMs = profileSection(profileLayers) {
             scenery.drawShip(context: context, bounds: bounds, env: currentEnv)
         }
 
-        let actorsWeatherMs = profileSection(profileLayers) {
+        let bonfireMs = profileSection(profileLayers) {
             scenery.drawBonfire(context: context, bounds: bounds, env: currentEnv)
+        }
+        let charactersMs = profileSection(profileLayers) {
             characters.drawAll(context: context, bounds: bounds)
+        }
+        let palmsMs = profileSection(profileLayers) {
             scenery.drawPalms(context: context, bounds: bounds, env: currentEnv)
+        }
+        let firefliesMs = profileSection(profileLayers) {
             scenery.drawFireflies(context: context, bounds: bounds, env: currentEnv)
+        }
+        let weatherMs = profileSection(profileLayers) {
             weather.draw(context: context, bounds: bounds, env: currentEnv)
         }
 
-        let postFxMs = profileSection(profileLayers) {
+        let scanlinesMs = profileSection(profileLayers) {
             drawScanlines(context: context, bounds: bounds)
+        }
+        let vignetteMs = profileSection(profileLayers) {
             drawVignette(context: context, bounds: bounds)
         }
+
+        let skyBackgroundMs = skyMs + starsMs + celestialMs + mountainsMs + cloudsMs
+        let midgroundMs = beachBackgroundMs + monkeyIslandMs + seaMs + seaCreaturesMs + mountainReflectionMs + monkeyReflectionMs + beachForegroundMs + shipMs
+        let actorsWeatherMs = bonfireMs + charactersMs + palmsMs + firefliesMs + weatherMs
+        let postFxMs = scanlinesMs + vignetteMs
 
         let commitMs = profileSection(profileLayers) {
             if let image = context.makeImage() {
@@ -232,6 +283,27 @@ import ScreenSaver
 
         if profileLayers {
             let sectionTotalMs = contextCreateMs + skyBackgroundMs + midgroundMs + actorsWeatherMs + postFxMs + commitMs
+            let hotspots: [(String, Double)] = [
+                ("sky", skyMs),
+                ("stars", starsMs),
+                ("celestial", celestialMs),
+                ("mountains", mountainsMs),
+                ("clouds", cloudsMs),
+                ("sea", seaMs),
+                ("seaCreatures", seaCreaturesMs),
+                ("beachFg", beachForegroundMs),
+                ("monkeyRefl", monkeyReflectionMs),
+                ("ship", shipMs),
+                ("chars", charactersMs),
+                ("weather", weatherMs),
+                ("scanlines", scanlinesMs),
+                ("vignette", vignetteMs)
+            ]
+            let topHotspots = hotspots
+                .sorted { $0.1 > $1.1 }
+                .prefix(3)
+                .map { "\($0.0)=\(String(format: "%.2f", $0.1))ms" }
+                .joined(separator: ",")
             let contextText = String(format: "%.2f", contextCreateMs)
             let skyText = String(format: "%.2f", skyBackgroundMs)
             let midText = String(format: "%.2f", midgroundMs)
@@ -239,7 +311,7 @@ import ScreenSaver
             let postFxText = String(format: "%.2f", postFxMs)
             let commitText = String(format: "%.2f", commitMs)
             let totalText = String(format: "%.2f", sectionTotalMs)
-            NSLog("PixelParallax LayerProfile frame=\(frameCount) ctx=\(contextText)ms skyBg=\(skyText)ms mid=\(midText)ms actors=\(actorsText)ms postFx=\(postFxText)ms commit=\(commitText)ms total=\(totalText)ms")
+            NSLog("PixelParallax LayerProfile frame=\(frameCount) ctx=\(contextText)ms skyBg=\(skyText)ms mid=\(midText)ms actors=\(actorsText)ms postFx=\(postFxText)ms commit=\(commitText)ms total=\(totalText)ms top=[\(topHotspots)]")
         }
     }
     
@@ -329,6 +401,7 @@ import ScreenSaver
         scenery.drawBeachBackground(context: context, bounds: bounds, env: currentEnv)
         scenery.drawMonkeyIsland(context: context, bounds: bounds, env: currentEnv)
         scenery.drawSea(context: context, bounds: bounds, env: currentEnv)
+        scenery.drawSeaCreatures(context: context, bounds: bounds, env: currentEnv)
         background.drawMountainReflection(context: context, bounds: bounds, env: currentEnv)
         scenery.drawMonkeyIslandReflection(context: context, bounds: bounds, env: currentEnv)
         scenery.drawSinuousBeachForeground(context: context, bounds: bounds, env: currentEnv)
@@ -376,19 +449,77 @@ import ScreenSaver
     private func drawScanlines(context: CGContext, bounds: CGRect) {
         context.saveGState()
         context.setBlendMode(.overlay)
-        context.setFillColor(scanlineColor)
-        for y in stride(from: 0, through: bounds.height, by: 4) {
-            context.fill(CGRect(x: 0, y: y, width: bounds.width, height: 2))
+        if let scanlineImage = scanlineImage(for: bounds) {
+            context.draw(scanlineImage, in: bounds)
         }
         context.restoreGState()
     }
     
     private func drawVignette(context: CGContext, bounds: CGRect) {
-        guard let gradient = vignetteGradient else { return }
-        let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let radius = max(bounds.width, bounds.height) * 0.75
-        
-        context.drawRadialGradient(gradient, startCenter: center, startRadius: radius * 0.6, endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation])
+        guard let vignetteImage = vignetteImage(for: bounds) else { return }
+        context.draw(vignetteImage, in: bounds)
+    }
+
+    private func scanlineImage(for bounds: CGRect) -> CGImage? {
+        let size = bounds.size
+        if cachedScanlineImage == nil || cachedScanlineSize != size {
+            let width = Int(size.width)
+            let height = Int(size.height)
+            guard width > 0, height > 0 else { return nil }
+
+            guard let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: deviceColorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            ) else {
+                return nil
+            }
+
+            context.setFillColor(scanlineColor)
+            for y in stride(from: 0, through: CGFloat(height), by: 4) {
+                context.fill(CGRect(x: 0, y: y, width: CGFloat(width), height: 2))
+            }
+
+            cachedScanlineImage = context.makeImage()
+            cachedScanlineSize = size
+        }
+
+        return cachedScanlineImage
+    }
+
+    private func vignetteImage(for bounds: CGRect) -> CGImage? {
+        let size = bounds.size
+        if cachedVignetteImage == nil || cachedVignetteSize != size {
+            let width = Int(size.width)
+            let height = Int(size.height)
+            guard width > 0, height > 0 else { return nil }
+
+            guard let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: deviceColorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            ) else {
+                return nil
+            }
+
+            guard let gradient = vignetteGradient else { return nil }
+            let center = CGPoint(x: CGFloat(width) * 0.5, y: CGFloat(height) * 0.5)
+            let radius = max(CGFloat(width), CGFloat(height)) * 0.75
+            context.drawRadialGradient(gradient, startCenter: center, startRadius: radius * 0.6, endCenter: center, endRadius: radius, options: [.drawsAfterEndLocation])
+
+            cachedVignetteImage = context.makeImage()
+            cachedVignetteSize = size
+        }
+
+        return cachedVignetteImage
     }
 
     @inline(__always)

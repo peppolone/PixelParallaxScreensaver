@@ -28,6 +28,24 @@ struct MIParticle: Sendable {
     var type: Int
 }
 
+struct MISeaCreature: Sendable {
+    var x: CGFloat
+    var y: CGFloat
+    var speed: CGFloat
+    var direction: CGFloat
+    var phase: CGFloat
+    var age: CGFloat
+    var lifetime: CGFloat
+    var size: CGFloat
+}
+
+struct MIKrakenEvent: Sendable {
+    var x: CGFloat
+    var age: CGFloat
+    var duration: CGFloat
+    var size: CGFloat
+}
+
 /// Gestisce scenari: palme, mare, nave, falò e particelle
 /// NOTA: Questa classe deve essere usata solo dal main thread
 class MIScenery {
@@ -35,6 +53,8 @@ class MIScenery {
     private var palms: [MIPalm] = []
     private var fireflies: [MIFirefly] = []
     private var fireParticles: [MIParticle] = []
+    private var seaCreatures: [MISeaCreature] = []
+    private var krakenEvent: MIKrakenEvent?
     
     let pixelSize: CGFloat
     private var time: CGFloat = 0
@@ -44,11 +64,18 @@ class MIScenery {
     private var shipX: CGFloat = -200
     private var boatYBob: CGFloat = 0
     private var shipRock: CGFloat = 0
+    private var shipXFar: CGFloat = -200
+    private var boatYBobFar: CGFloat = 0
+    private var shipRockFar: CGFloat = 0
     
     private var seaOffset: CGFloat = 0
     private var palmOffset: CGFloat = 0
     private var windStrength: CGFloat = 0
     private var bonfireX: CGFloat = 0
+    private var creatureSpawnTimer: CGFloat = 0
+    private var nextCreatureSpawn: CGFloat = 8
+    private var krakenSpawnTimer: CGFloat = 0
+    private var nextKrakenSpawn: CGFloat = 45
     
     // Beach height
     private let beachHeight: CGFloat = 0.12
@@ -60,7 +87,10 @@ class MIScenery {
         setupPalms(bounds: bounds)
         setupFireflies(bounds: bounds)
         shipX = bounds.width * 0.5
+        shipXFar = bounds.width * 0.15
         bonfireX = bounds.width * 0.75
+        nextCreatureSpawn = isPreview ? 12 : CGFloat.random(in: 7...12)
+        nextKrakenSpawn = isPreview ? 90 : CGFloat.random(in: 40...70)
     }
     
     private func setupPalms(bounds: CGRect) {
@@ -78,9 +108,13 @@ class MIScenery {
                 layer: 0
             ))
         }
-        for _ in 0..<frontPalmCount {
+        for i in 0..<frontPalmCount {
+            let isLeftSide = i % 2 == 0
+            let sideXRange: ClosedRange<CGFloat> = isLeftSide
+                ? 0...(bounds.width * 0.18)
+                : (bounds.width * 0.82)...bounds.width
             palms.append(MIPalm(
-                x: CGFloat.random(in: 0...bounds.width),
+                x: CGFloat.random(in: sideXRange),
                 trunkHeight: CGFloat.random(in: 80...120),
                 swayPhase: CGFloat.random(in: 0...6.28),
                 swaySpeed: CGFloat.random(in: 2...3),
@@ -109,8 +143,11 @@ class MIScenery {
         seaOffset += 0.15
         palmOffset += 0.12
         shipX += 0.2  // Movimento verso destra (era -0.2)
+        shipXFar -= 0.14
         boatYBob = sin(time * 1.5) * 2.0
         shipRock = sin(time * 0.8) * 0.05
+        boatYBobFar = sin(time * 1.2 + 1.7) * 1.6
+        shipRockFar = sin(time * 0.7 + 1.1) * 0.03
         windStrength = sin(time * 0.5) * 0.2
         
         for i in 0..<fireflies.count {
@@ -153,6 +190,42 @@ class MIScenery {
             if fireParticles[i].life <= 0 {
                 fireParticles.remove(at: i)
             }
+        }
+
+        creatureSpawnTimer += deltaTime
+        if creatureSpawnTimer >= nextCreatureSpawn {
+            spawnSeaCreature()
+            creatureSpawnTimer = 0
+            nextCreatureSpawn = isPreview ? 14 : CGFloat.random(in: 6...11)
+        }
+
+        for i in (0..<seaCreatures.count).reversed() {
+            seaCreatures[i].x += seaCreatures[i].speed * seaCreatures[i].direction * deltaTime
+            seaCreatures[i].age += deltaTime
+            seaCreatures[i].phase += deltaTime * 2.4
+
+            if seaCreatures[i].age > seaCreatures[i].lifetime || seaCreatures[i].x < -120 || seaCreatures[i].x > bounds.width + 120 {
+                seaCreatures.remove(at: i)
+            }
+        }
+
+        krakenSpawnTimer += deltaTime
+        if var event = krakenEvent {
+            event.age += deltaTime
+            if event.age >= event.duration {
+                krakenEvent = nil
+                krakenSpawnTimer = 0
+                nextKrakenSpawn = isPreview ? 120 : CGFloat.random(in: 45...80)
+            } else {
+                krakenEvent = event
+            }
+        } else if krakenSpawnTimer >= nextKrakenSpawn {
+            krakenEvent = MIKrakenEvent(
+                x: bounds.width * 0.5,
+                age: 0,
+                duration: isPreview ? 5.5 : CGFloat.random(in: 5...8),
+                size: CGFloat.random(in: 0.85...1.2)
+            )
         }
     }
     
@@ -252,15 +325,27 @@ class MIScenery {
         context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.4).cgColor)
         let tileSize: CGFloat = pixelSize * 2
         let waveTime = time * 1.5
+        let wave2Delta: CGFloat = tileSize * 0.02
+        let wave2SinDelta = sin(wave2Delta)
+        let wave2CosDelta = cos(wave2Delta)
         
         for y in stride(from: CGFloat(0), through: horizonY, by: tileSize) {
             let rowFactor = y / horizonY
             let freq = 0.05 + rowFactor * 0.1
             let speed = 2.0 + rowFactor
+            let wave1Delta = tileSize * freq
+            let wave1SinDelta = sin(wave1Delta)
+            let wave1CosDelta = cos(wave1Delta)
+
+            var wave1Sin = sin(waveTime * speed)
+            var wave1Cos = cos(waveTime * speed)
+
+            var wave2Sin = sin(y * freq * 2.0 - waveTime)
+            var wave2Cos = cos(y * freq * 2.0 - waveTime)
             
             for x in stride(from: 0, through: bounds.width, by: tileSize) {
-                let wave1 = sin(x * freq + waveTime * speed)
-                let wave2 = cos(y * freq * 2.0 - waveTime + x * 0.02)
+                let wave1 = wave1Sin
+                let wave2 = wave2Cos
                 let combinedWave = wave1 + wave2
                 
                 if combinedWave > 1.0 {
@@ -273,8 +358,120 @@ class MIScenery {
                         context.fill(CGRect(x: x + pixelSize, y: y, width: pixelSize, height: pixelSize))
                     }
                 }
+
+                let nextWave1Sin = wave1Sin * wave1CosDelta + wave1Cos * wave1SinDelta
+                let nextWave1Cos = wave1Cos * wave1CosDelta - wave1Sin * wave1SinDelta
+                wave1Sin = nextWave1Sin
+                wave1Cos = nextWave1Cos
+
+                let nextWave2Cos = wave2Cos * wave2CosDelta - wave2Sin * wave2SinDelta
+                let nextWave2Sin = wave2Sin * wave2CosDelta + wave2Cos * wave2SinDelta
+                wave2Cos = nextWave2Cos
+                wave2Sin = nextWave2Sin
             }
         }
+    }
+
+    private func spawnSeaCreature() {
+        let horizonY = bounds.height * 0.35
+        seaCreatures.append(MISeaCreature(
+            x: CGFloat.random(in: -40...(bounds.width + 40)),
+            y: CGFloat.random(in: horizonY * 0.22...horizonY * 0.78),
+            speed: CGFloat.random(in: 18...34),
+            direction: Bool.random() ? 1.0 : -1.0,
+            phase: CGFloat.random(in: 0...6.28),
+            age: 0,
+            lifetime: CGFloat.random(in: 7...14),
+            size: CGFloat.random(in: 0.8...1.35)
+        ))
+    }
+
+    func drawSeaCreatures(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
+        let horizonY = bounds.height * 0.35
+        let bodyColor = env.seaTop.nsColor.blended(withFraction: 0.55, of: .black) ?? env.seaTop.nsColor
+        let finColor = env.seaFoam.nsColor.blended(withFraction: 0.52, of: env.seaTop.nsColor) ?? env.seaFoam.nsColor
+
+        for creature in seaCreatures {
+            let lifeT = max(0, min(1, 1 - (creature.age / creature.lifetime)))
+            let bob = sin(creature.phase) * pixelSize * 2.0
+            let x = creature.x
+            let y = min(horizonY - pixelSize * 3, max(pixelSize * 4, creature.y + bob))
+            let dir = creature.direction
+            let bodyW = pixelSize * 12.0 * creature.size
+            let bodyH = pixelSize * 2.6 * creature.size
+            let finW = pixelSize * 4.6 * creature.size
+            let finH = pixelSize * 5.4 * creature.size
+            let bodyRect = CGRect(x: x - bodyW * 0.5, y: y - bodyH * 0.45, width: bodyW, height: bodyH)
+
+            let finPath = CGMutablePath()
+            finPath.move(to: CGPoint(x: x - finW * 0.5, y: y))
+            finPath.addLine(to: CGPoint(x: x - dir * finW * 0.12, y: y + finH))
+            finPath.addLine(to: CGPoint(x: x + finW * 0.5, y: y))
+            finPath.closeSubpath()
+
+            let tailPath = CGMutablePath()
+            let tailBaseX = x - dir * bodyW * 0.5
+            tailPath.move(to: CGPoint(x: tailBaseX, y: y + bodyH * 0.1))
+            tailPath.addLine(to: CGPoint(x: tailBaseX - dir * bodyW * 0.28, y: y + bodyH * 0.45))
+            tailPath.addLine(to: CGPoint(x: tailBaseX - dir * bodyW * 0.22, y: y - bodyH * 0.2))
+            tailPath.closeSubpath()
+
+            context.saveGState()
+            context.setAlpha(0.45 + lifeT * 0.4)
+            context.setFillColor(bodyColor.withAlphaComponent(0.34 + lifeT * 0.2).cgColor)
+            context.fillEllipse(in: bodyRect)
+
+            context.setFillColor(finColor.cgColor)
+            context.addPath(finPath)
+            context.fillPath()
+            context.addPath(tailPath)
+            context.fillPath()
+
+            context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.25 + lifeT * 0.15).cgColor)
+            context.fill(CGRect(x: x - bodyW * 0.35, y: y - pixelSize, width: bodyW * 0.7, height: pixelSize))
+            context.restoreGState()
+        }
+
+        if let kraken = krakenEvent {
+            drawKraken(context: context, bounds: bounds, env: env, event: kraken)
+        }
+    }
+
+    private func drawKraken(context: CGContext, bounds: CGRect, env: MIPalette.Environment, event: MIKrakenEvent) {
+        let horizonY = bounds.height * 0.35
+        let progress = max(0, min(1, event.age / event.duration))
+        let emerge = sin(progress * .pi)
+        let baseY = horizonY * 0.4
+        let bodyColor = env.seaTop.nsColor.blended(withFraction: 0.55, of: .black) ?? env.seaTop.nsColor
+
+        context.saveGState()
+        context.setAlpha(0.18 + emerge * 0.48)
+        context.setStrokeColor(bodyColor.cgColor)
+        context.setLineCap(.round)
+
+        for i in 0..<4 {
+            let offset = (CGFloat(i) - 1.5) * pixelSize * 8.0 * event.size
+            let sway = sin(time * 2.2 + CGFloat(i) * 1.4) * pixelSize * 6.0 * event.size
+            let rise = (pixelSize * (16 + CGFloat(i) * 4)) * emerge * event.size
+
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: event.x + offset, y: baseY))
+            path.addQuadCurve(
+                to: CGPoint(x: event.x + offset + sway, y: baseY + rise),
+                control: CGPoint(x: event.x + offset + sway * 0.3, y: baseY + rise * 0.6)
+            )
+            context.setLineWidth(pixelSize * (2.4 - CGFloat(i) * 0.28) * event.size)
+            context.addPath(path)
+            context.strokePath()
+        }
+
+        let headR = pixelSize * 5.5 * event.size * emerge
+        if headR > pixelSize {
+            context.setFillColor(bodyColor.withAlphaComponent(0.6).cgColor)
+            context.fillEllipse(in: CGRect(x: event.x - headR, y: baseY + pixelSize * 4, width: headR * 2, height: headR * 1.5))
+        }
+
+        context.restoreGState()
     }
     
     // MARK: - Sinuous Beach Foreground (Sabbia, onda riva, detriti)
@@ -427,6 +624,48 @@ class MIScenery {
                               shipWidth: scaledWidth, shipHeight: scaledHeight, alpha: 0.2)
                 context.restoreGState()
             }
+
+            // Seconda nave più lontana, in direzione opposta
+            var drawXFar = shipXFar
+            while drawXFar < -150 { drawXFar += wrap }
+            drawXFar = drawXFar.truncatingRemainder(dividingBy: wrap)
+
+            let farScale = spriteScale * 0.72
+            let farWidth = CGFloat(shipSprite.width) * farScale
+            let farHeight = CGFloat(shipSprite.height) * farScale
+            let farY = horizonY - farHeight * 0.45 + boatYBobFar + 8
+
+            context.saveGState()
+            context.translateBy(x: drawXFar + farWidth / 2, y: farY + farHeight / 2)
+            context.scaleBy(x: -1.0, y: 1.0)
+            context.rotate(by: shipRockFar)
+            context.translateBy(x: -(drawXFar + farWidth / 2), y: -(farY + farHeight / 2))
+            let farRect = CGRect(x: drawXFar, y: farY, width: farWidth, height: farHeight)
+            context.draw(shipSprite, in: farRect)
+
+            let farTint = NSColor(red: 176.0/255.0, green: 74.0/255.0, blue: 52.0/255.0, alpha: 1.0)
+            context.saveGState()
+            context.clip(to: farRect, mask: shipSprite)
+            context.setBlendMode(.color)
+            context.setFillColor(farTint.withAlphaComponent(0.9).cgColor)
+            context.fill(farRect)
+            context.setBlendMode(.multiply)
+            context.setFillColor(NSColor(red: 55.0/255.0, green: 28.0/255.0, blue: 20.0/255.0, alpha: 0.22).cgColor)
+            context.fill(farRect)
+            context.restoreGState()
+            context.restoreGState()
+
+            context.saveGState()
+            context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
+            context.setAlpha(0.18)
+            let farReflectY = farY - farHeight
+            context.translateBy(x: 0, y: farReflectY + farHeight)
+            context.scaleBy(x: 1.0, y: -1.0)
+            context.translateBy(x: drawXFar + farWidth / 2, y: farHeight / 2)
+            context.scaleBy(x: -1.0, y: 1.0)
+            context.translateBy(x: -(drawXFar + farWidth / 2), y: -(farHeight / 2))
+            context.draw(shipSprite, in: CGRect(x: drawXFar, y: 0, width: farWidth, height: farHeight))
+            context.restoreGState()
         } else {
             // Fallback: disegno procedurale
             // Reflection
@@ -641,31 +880,30 @@ class MIScenery {
         for pass in 0..<2 {
             context.setFillColor(pass == 0 ? darkColorValue.cgColor : baseLeafColor.cgColor)
             
-            let numLeaves = pass == 0 ? 5 : 4
+            let numLeaves = pass == 0 ? 6 : 5
             let angleOffset = pass == 1 ? 0.3 : 0.0
             
             for i in 0..<numLeaves {
                 context.saveGState()
                 
                 let baseRotation = CGFloat(i) * (6.28 / CGFloat(numLeaves)) + angleOffset
-                let windSway = sin(time + CGFloat(i)) * 0.15
+                let windSway = sin(time * palm.swaySpeed * 0.9 + palm.swayPhase + CGFloat(i) * 0.7 + CGFloat(pass) * 0.5) * 0.16
                 context.rotate(by: baseRotation + windSway)
                 
+                let leafLength = leafLen * (0.78 + CGFloat((i + pass * 2) % 5) * 0.06)
+                let ribY = -4 * scale
                 let leafPath = CGMutablePath()
                 leafPath.move(to: .zero)
-                leafPath.addQuadCurve(to: CGPoint(x: leafLen, y: -5 * scale),
-                                      control: CGPoint(x: leafLen * 0.5, y: 15 * scale))
-                
-                var currentX = leafLen
-                while currentX > 0 {
-                    let pseudoRandom = CGFloat((i * 13 + pass * 7) % 10) / 10.0
-                    let step = (3.0 + pseudoRandom * 3.0) * scale
-                    currentX -= step
-                    if currentX < 0 { currentX = 0 }
-                    let drop = (2.0 + pseudoRandom * 3.0) * scale
-                    
-                    leafPath.addLine(to: CGPoint(x: currentX + step/2, y: -drop - 5 * scale))
-                    leafPath.addLine(to: CGPoint(x: currentX, y: -2 * scale))
+                leafPath.addQuadCurve(to: CGPoint(x: leafLength, y: ribY),
+                                      control: CGPoint(x: leafLength * 0.45, y: 14 * scale))
+
+                var t: CGFloat = 1.0
+                while t > 0 {
+                    let xPos = leafLength * t
+                    let depthBase = (2.0 + (1.0 - t) * 8.0) * scale
+                    let serration = sin(CGFloat(i) * 1.7 + CGFloat(pass) * 0.9 + t * 10.0) * 0.8 * scale
+                    leafPath.addLine(to: CGPoint(x: xPos, y: ribY - depthBase - serration))
+                    t -= 0.12
                 }
                 
                 leafPath.addLine(to: .zero)

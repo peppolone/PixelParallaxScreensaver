@@ -21,6 +21,7 @@ class MICharacters {
     private var characters: [MIPixelCharacter] = []
     private let pixelSize: CGFloat
     private let isPreview: Bool
+    private let beachHeight: CGFloat = 0.12
     
     /// Dizionario di sprite per ogni tipo di personaggio
     /// Chiave: nome tipo, Valore: Array di frame animazione CGImage
@@ -105,35 +106,45 @@ class MICharacters {
     func drawAll(context: CGContext, bounds: CGRect) {
         guard MIConfigureSheetController.shared.areCharactersEnabled else { return }
         
-        let beachY = bounds.height * 0.08
-        
         for character in characters {
             if let frames = characterSprites[character.spriteType], !frames.isEmpty {
-                drawCharacterSprite(context: context, character: character, frames: frames, baseY: beachY)
+                let shorelineY = shorelineY(at: character.x, bounds: bounds)
+                let beachY = max(pixelSize * 2, shorelineY - bounds.height * 0.05)
+                drawCharacterSprite(context: context, character: character, frames: frames, baseY: beachY, shorelineY: shorelineY)
             }
         }
     }
     
     /// Disegna un singolo personaggio usando sprite
-    private func drawCharacterSprite(context: CGContext, character: MIPixelCharacter, frames: [CGImage], baseY: CGFloat) {
+    private func drawCharacterSprite(context: CGContext, character: MIPixelCharacter, frames: [CGImage], baseY: CGFloat, shorelineY: CGFloat) {
         let frameIndex = Int(character.walkPhase) % frames.count
         let sprite = frames[frameIndex]
         
         let scale = pixelSize * character.z * 0.8
         let yDepthOffset = (1.2 - character.z) * 30 * pixelSize
-        let yPos = baseY + yDepthOffset
+        let maxWalkY = shorelineY - scale * 2.2
+        let yPos = min(baseY + yDepthOffset, maxWalkY)
         
         // Bobbing verticale per simulare camminata
         let bobPhase = Int(character.walkPhase * 2) % 4
-        let bobY = (bobPhase == 1 || bobPhase == 3) ? scale * 0.3 : 0
+        let bobY = (bobPhase == 1 || bobPhase == 3) ? scale * 0.25 : 0
+        let finalY = max(pixelSize, yPos + bobY)
         
         MISpriteLoader.drawSprite(
             sprite, 
             in: context, 
             at: character.x, 
-            y: yPos + bobY, 
+            y: finalY, 
             scale: scale, 
             flipX: character.direction < 0
         )
+    }
+
+    private func shorelineY(at x: CGFloat, bounds: CGRect) -> CGFloat {
+        let beachTop = bounds.height * beachHeight
+        let clampedX = max(0, min(bounds.width, x))
+        let normX = bounds.width > 0 ? clampedX / bounds.width : 0
+        let curve = sin(normX * .pi) * -(bounds.height * 0.04) + cos(normX * .pi * 2.5) * (bounds.height * 0.02)
+        return beachTop + curve + (1.0 - normX) * bounds.height * 0.04
     }
 }
