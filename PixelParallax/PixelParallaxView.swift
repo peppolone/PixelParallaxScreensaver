@@ -150,7 +150,9 @@ import ScreenSaver
         weather.update(deltaTime: TimeInterval(deltaTime))
         
         let renderStartTime = CACurrentMediaTime()
-        renderWithBackground()
+        autoreleasepool {
+            renderWithBackground()
+        }
         let renderDurationMs = (CACurrentMediaTime() - renderStartTime) * 1000.0
         let frameDurationMs = (CACurrentMediaTime() - frameStartTime) * 1000.0
         recordBenchmark(frameDurationMs: frameDurationMs, renderDurationMs: renderDurationMs)
