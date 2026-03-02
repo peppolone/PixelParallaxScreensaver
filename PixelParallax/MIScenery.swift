@@ -142,8 +142,8 @@ class MIScenery {
         time += deltaTime
         seaOffset += 0.15
         palmOffset += 0.12
-        shipX += 0.2  // Movimento verso destra (era -0.2)
-        shipXFar -= 0.14
+        shipX += 0.6   // Movimento verso destra — ciclo completo ~2 min
+        shipXFar -= 0.42
         boatYBob = sin(time * 1.5) * 2.0
         shipRock = sin(time * 0.8) * 0.05
         boatYBobFar = sin(time * 1.2 + 1.7) * 1.6

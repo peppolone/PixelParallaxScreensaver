@@ -666,8 +666,13 @@ class MIWeather {
         if !rainEnabled {
             isRaining = false
             timeSinceToggle = 0
-        } else if timeSinceToggle > Double.random(in: 30...60) {
-            isRaining.toggle()
+        } else if timeSinceToggle > Double.random(in: 150...360) {
+            // Rain is rare: only 25% chance to start raining; always stop when done
+            if !isRaining {
+                isRaining = Double.random(in: 0...1) < 0.25
+            } else {
+                isRaining = false
+            }
             timeSinceToggle = 0
         }
         
