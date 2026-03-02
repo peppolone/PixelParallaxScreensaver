@@ -389,19 +389,18 @@ class MIScenery {
 
     private func spawnSeaCreature() {
         let horizonY = bounds.height * 0.35
-        let dir: CGFloat = Bool.random() ? 1.0 : -1.0
-        // Enter from the side off-screen in the direction of travel
-        let startX = dir > 0 ? -100.0 : bounds.width + 100.0
-        // Random depth in the sea area (independent from spawn timing)
-        let surfaceY = horizonY * CGFloat.random(in: 0.28...0.72)
+        // Spawn at a random visible position in the sea;
+        // the creature emerges from below, crests, then submerges (parabola over lifetime)
+        let spawnX = CGFloat.random(in: bounds.width * 0.08...bounds.width * 0.92)
+        let surfaceY = horizonY * CGFloat.random(in: 0.30...0.70)
         seaCreatures.append(MISeaCreature(
-            x: startX,
+            x: spawnX,
             y: surfaceY,
-            speed: CGFloat.random(in: 22...38),
-            direction: dir,
+            speed: CGFloat.random(in: 14...26),
+            direction: Bool.random() ? 1.0 : -1.0,
             phase: 0,
             age: 0,
-            lifetime: CGFloat.random(in: 9...16),
+            lifetime: CGFloat.random(in: 8...15),
             size: CGFloat.random(in: 0.8...1.35)
         ))
     }

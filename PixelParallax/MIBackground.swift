@@ -216,25 +216,24 @@ class MIBackground {
             let alpha: CGFloat = sunY > horizonY * 0.2 ? 1.0 : max(0, sunY / (horizonY * 0.2))
             
             drawCelestialBodyAt(context: context, cx: sunX, cy: sunY, radius: radius, env: env, isMoon: false, alpha: alpha)
-        } else if cycleTime >= 0.65 || cycleTime <= 0.35 {
-            // LUNA: stessa durata di traversata del sole (0.70) per velocità coerente
+        } else {
+            // LUNA: visibile quando il sole è sotto l'orizzonte (cycleTime > 0.85 o cycleTime < 0.15)
+            // moonProgress va da 0 (appare a est) a 1 (scompare a ovest),
+            // con 0 esattamente all'inizio della notte (cycleTime=0.85)
+            let nightDuration: CGFloat = 0.30  // 0.85 → 1.0 → 0.15
             var moonProgress: CGFloat
-            if cycleTime >= 0.65 {
-                moonProgress = (cycleTime - 0.65) / 0.70
-            } else {
-                moonProgress = (cycleTime + 0.35) / 0.70
+            if cycleTime >= 0.85 {
+                moonProgress = (cycleTime - 0.85) / nightDuration          // 0 .. 0.5
+            } else {  // cycleTime < 0.15
+                moonProgress = 0.5 + cycleTime / nightDuration             // 0.5 .. 1.0
             }
             moonProgress = max(0, min(1, moonProgress))
-            
-            // X: da sinistra a destra
-            let moonX = bounds.width * (0.1 + moonProgress * 0.8)
-            
-            // Y: arco parabolico
+
+            let moonX = bounds.width * (0.05 + moonProgress * 0.90)
             let moonHeight = sin(moonProgress * .pi) * (maxHeight - horizonY + belowHorizon)
             let moonY = (horizonY - belowHorizon) + moonHeight
-            
             let alpha: CGFloat = moonY > horizonY * 0.2 ? 1.0 : max(0, moonY / (horizonY * 0.2))
-            
+
             drawCelestialBodyAt(context: context, cx: moonX, cy: moonY, radius: radius, env: env, isMoon: true, alpha: alpha)
         }
     }
