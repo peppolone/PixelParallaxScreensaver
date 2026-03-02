@@ -678,8 +678,15 @@ class MIScenery {
             context.setBlendMode(.multiply)
             context.setFillColor(NSColor(red: 55.0/255.0, green: 28.0/255.0, blue: 20.0/255.0, alpha: 0.22).cgColor)
             context.fill(farRect)
-            context.restoreGState()
-            context.restoreGState()
+            context.restoreGState()  // chiude tint saveGState
+            context.restoreGState()  // chiude rotazione/flip seconda nave
+
+            // Luci notturne seconda nave
+            if isDark {
+                drawShipLights(context: context, shipX: drawXFar, shipY: farY,
+                               shipWidth: farWidth, shipHeight: farHeight,
+                               isDark: isDark, alpha: 0.65)
+            }
 
             context.saveGState()
             context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))

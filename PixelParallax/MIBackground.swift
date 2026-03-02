@@ -191,7 +191,7 @@ class MIBackground {
         let horizonY = bounds.height * 0.35  // Linea dell'orizzonte
         let maxHeight = bounds.height * 0.9  // Altezza massima
         let belowHorizon = bounds.height * 0.15  // Quanto scende sotto l'orizzonte
-        let radius: CGFloat = 40.0 * (pixelSize / 2.0)
+        let radius: CGFloat = 20.0 * (pixelSize / 2.0)  // Raggio ridotto: luna più piccola
         
         // Il sole è visibile da 0.15 a 0.85 (più tempo per attraversare l'orizzonte)
         // La luna è visibile da 0.90 a 1.00 + 0.00 a 0.10
@@ -257,13 +257,20 @@ class MIBackground {
         context.setFillColor(env.sunMoon.nsColor.cgColor)
         context.fillEllipse(in: CGRect(x: cx - radius, y: cy - radius, width: radius * 2, height: radius * 2))
         
-        // Crateri sulla luna
+        // Crateri sulla luna — più visibili e numerosi
         if isMoon {
-            let craterColor = env.sunMoon.nsColor.blended(withFraction: 0.15, of: .gray) ?? env.sunMoon.nsColor
+            let craterColor = env.sunMoon.nsColor.blended(withFraction: 0.45, of: NSColor(white: 0.2, alpha: 1.0)) ?? env.sunMoon.nsColor
             context.setFillColor(craterColor.cgColor)
-            context.fillEllipse(in: CGRect(x: cx - radius * 0.3, y: cy + radius * 0.2, width: radius * 0.25, height: radius * 0.25))
-            context.fillEllipse(in: CGRect(x: cx + radius * 0.25, y: cy - radius * 0.1, width: radius * 0.18, height: radius * 0.18))
-            context.fillEllipse(in: CGRect(x: cx - radius * 0.05, y: cy - radius * 0.35, width: radius * 0.12, height: radius * 0.12))
+            // Cratere grande in basso a sinistra
+            context.fillEllipse(in: CGRect(x: cx - radius * 0.42, y: cy + radius * 0.18, width: radius * 0.35, height: radius * 0.32))
+            // Cratere medio in alto a destra
+            context.fillEllipse(in: CGRect(x: cx + radius * 0.22, y: cy - radius * 0.12, width: radius * 0.25, height: radius * 0.22))
+            // Cratere piccolo in alto a sinistra
+            context.fillEllipse(in: CGRect(x: cx - radius * 0.08, y: cy - radius * 0.42, width: radius * 0.16, height: radius * 0.14))
+            // Cratere medio centro-destra
+            context.fillEllipse(in: CGRect(x: cx + radius * 0.02, y: cy + radius * 0.32, width: radius * 0.20, height: radius * 0.17))
+            // Cratere piccolo in basso a destra
+            context.fillEllipse(in: CGRect(x: cx + radius * 0.38, y: cy + radius * 0.38, width: radius * 0.12, height: radius * 0.11))
         }
         
         context.restoreGState()
