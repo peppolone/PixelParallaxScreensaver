@@ -603,64 +603,24 @@ class MIScenery {
         
         // Prova a caricare lo sprite della nave
         if let shipSprite = MISpriteLoader.shared.loadSprite(named: "ship") {
-            // Disegna usando sprite
-            let scaledWidth = CGFloat(shipSprite.width) * spriteScale
+            let scaledWidth  = CGFloat(shipSprite.width)  * spriteScale
             let scaledHeight = CGFloat(shipSprite.height) * spriteScale
-            
-            // Posizione nave: sulla linea dell'orizzonte (acqua)
-            let shipY = horizonY - scaledHeight/2 + boatYBob
-            
-            // Nave reale (disegna prima, così il riflesso va sotto)
-            context.saveGState()
-            context.translateBy(x: drawX + scaledWidth/2, y: shipY + scaledHeight/2)
-            context.rotate(by: shipRock)
-            context.translateBy(x: -(drawX + scaledWidth/2), y: -(shipY + scaledHeight/2))
-            let shipRect = CGRect(x: drawX, y: shipY, width: scaledWidth, height: scaledHeight)
-            context.draw(shipSprite, in: shipRect)
-            context.restoreGState()
-            
-            // 🕯️ Lucine sulla nave di notte (calcoliamo se è buio dal colore del cielo)
-            let isDark = env.skyTop.r < 0.3 && env.skyTop.g < 0.3
-            if isDark {
-                drawShipLights(context: context, shipX: drawX, shipY: shipY, 
-                              shipWidth: scaledWidth, shipHeight: scaledHeight, isDark: isDark, alpha: 1.0)
-            }
-            
-            // Reflection (riflesso nell'acqua, sotto la nave)
-            context.saveGState()
+            let shipY   = horizonY - scaledHeight / 2 + boatYBob
             let beachTop = bounds.height * beachHeight
-            // Riflesso: flippa verticalmente sotto la nave
-            let reflectY = shipY - scaledHeight  // Sotto la nave
-            context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
-            context.setAlpha(0.25)
-            // Flip verticale
-            context.translateBy(x: 0, y: reflectY + scaledHeight)
-            context.scaleBy(x: 1.0, y: -1.0)
-            let reflectRect = CGRect(x: drawX, y: 0, width: scaledWidth, height: scaledHeight)
-            context.draw(shipSprite, in: reflectRect)
-            context.restoreGState()
-            
-            // Luci riflesse - disegnate FUORI dal contesto flippato
-            if isDark {
-                context.saveGState()
-                context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
-                // Le luci riflesse sono più in basso nell'acqua
-                let reflectLightsY = shipY - scaledHeight * 1.2  // Più in basso
-                drawShipLightsReflected(context: context, shipX: drawX, shipY: reflectLightsY, 
-                              shipWidth: scaledWidth, shipHeight: scaledHeight, alpha: 0.2)
-                context.restoreGState()
-            }
+            let isDark   = env.skyTop.r < 0.3 && env.skyTop.g < 0.3
 
-            // Seconda nave più lontana, in direzione opposta
             var drawXFar = shipXFar
             while drawXFar < -150 { drawXFar += wrap }
             drawXFar = drawXFar.truncatingRemainder(dividingBy: wrap)
 
-            let farScale = spriteScale * 0.72
-            let farWidth = CGFloat(shipSprite.width) * farScale
+            let farScale  = spriteScale * 0.72
+            let farWidth  = CGFloat(shipSprite.width)  * farScale
             let farHeight = CGFloat(shipSprite.height) * farScale
-            let farY = horizonY - farHeight * 0.45 + boatYBobFar + 8
+            let farY      = horizonY - farHeight * 0.45 + boatYBobFar + 8
 
+            // ─── SECONDA NAVE (più lontana, riflesso rosso — disegnata prima = z più bassa) ───
+
+            // Corpo + tinta
             context.saveGState()
             context.translateBy(x: drawXFar + farWidth / 2, y: farY + farHeight / 2)
             context.scaleBy(x: -1.0, y: 1.0)
@@ -668,7 +628,6 @@ class MIScenery {
             context.translateBy(x: -(drawXFar + farWidth / 2), y: -(farY + farHeight / 2))
             let farRect = CGRect(x: drawXFar, y: farY, width: farWidth, height: farHeight)
             context.draw(shipSprite, in: farRect)
-
             let farTint = NSColor(red: 176.0/255.0, green: 74.0/255.0, blue: 52.0/255.0, alpha: 1.0)
             context.saveGState()
             context.clip(to: farRect, mask: shipSprite)
@@ -678,19 +637,20 @@ class MIScenery {
             context.setBlendMode(.multiply)
             context.setFillColor(NSColor(red: 55.0/255.0, green: 28.0/255.0, blue: 20.0/255.0, alpha: 0.22).cgColor)
             context.fill(farRect)
-            context.restoreGState()  // chiude tint saveGState
-            context.restoreGState()  // chiude rotazione/flip seconda nave
+            context.restoreGState()  // tint
+            context.restoreGState()  // rotazione/flip
 
             // Luci notturne seconda nave
             if isDark {
                 drawShipLights(context: context, shipX: drawXFar, shipY: farY,
                                shipWidth: farWidth, shipHeight: farHeight,
-                               isDark: isDark, alpha: 0.65)
+                               isDark: isDark, alpha: 0.60)
             }
 
+            // Riflesso seconda nave
             context.saveGState()
             context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
-            context.setAlpha(0.18)
+            context.setAlpha(0.16)
             let farReflectY = farY - farHeight
             context.translateBy(x: 0, y: farReflectY + farHeight)
             context.scaleBy(x: 1.0, y: -1.0)
@@ -699,6 +659,54 @@ class MIScenery {
             context.translateBy(x: -(drawXFar + farWidth / 2), y: -(farHeight / 2))
             context.draw(shipSprite, in: CGRect(x: drawXFar, y: 0, width: farWidth, height: farHeight))
             context.restoreGState()
+
+            // Luci riflesse seconda nave
+            if isDark {
+                context.saveGState()
+                context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
+                let farReflectLightsY = farY - farHeight * 1.2
+                drawShipLightsReflected(context: context, shipX: drawXFar, shipY: farReflectLightsY,
+                                        shipWidth: farWidth, shipHeight: farHeight, alpha: 0.13)
+                context.restoreGState()
+            }
+
+            // ─── NAVE PRINCIPALE (in primo piano — disegnata dopo = z più alta) ───
+
+            // Corpo
+            context.saveGState()
+            context.translateBy(x: drawX + scaledWidth / 2, y: shipY + scaledHeight / 2)
+            context.rotate(by: shipRock)
+            context.translateBy(x: -(drawX + scaledWidth / 2), y: -(shipY + scaledHeight / 2))
+            let shipRect = CGRect(x: drawX, y: shipY, width: scaledWidth, height: scaledHeight)
+            context.draw(shipSprite, in: shipRect)
+            context.restoreGState()
+
+            // Luci notturne nave principale
+            if isDark {
+                drawShipLights(context: context, shipX: drawX, shipY: shipY,
+                               shipWidth: scaledWidth, shipHeight: scaledHeight, isDark: isDark, alpha: 1.0)
+            }
+
+            // Riflesso nave principale
+            context.saveGState()
+            let reflectY = shipY - scaledHeight
+            context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
+            context.setAlpha(0.25)
+            context.translateBy(x: 0, y: reflectY + scaledHeight)
+            context.scaleBy(x: 1.0, y: -1.0)
+            let reflectRect = CGRect(x: drawX, y: 0, width: scaledWidth, height: scaledHeight)
+            context.draw(shipSprite, in: reflectRect)
+            context.restoreGState()
+
+            // Luci riflesse nave principale
+            if isDark {
+                context.saveGState()
+                context.clip(to: CGRect(x: 0, y: beachTop, width: bounds.width, height: horizonY - beachTop))
+                let reflectLightsY = shipY - scaledHeight * 1.2
+                drawShipLightsReflected(context: context, shipX: drawX, shipY: reflectLightsY,
+                                        shipWidth: scaledWidth, shipHeight: scaledHeight, alpha: 0.20)
+                context.restoreGState()
+            }
         } else {
             // Fallback: disegno procedurale
             // Reflection
