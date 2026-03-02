@@ -328,7 +328,7 @@ class MIBackground {
         context.setFillColor(baseColor.cgColor)
         
         let points: [(CGFloat, CGFloat)] = [
-            (0, 0), (100, 50), (250, 20), (400, 120), (600, 40), (800, 90), (1000, 10), (1200, 0)
+            (0, 0), (100, 50), (250, 20), (400, 120), (600, 40), (800, 22), (1000, 8), (1200, 0)
         ]
         
         let path = CGMutablePath()
