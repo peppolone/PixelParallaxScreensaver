@@ -42,6 +42,12 @@ import ScreenSaver
     private var cachedScanlineSize: CGSize = .zero
     private var cachedVignetteImage: CGImage?
     private var cachedVignetteSize: CGSize = .zero
+
+    // MARK: - Sky layer cache (sky+stars+celestial+mountains+clouds change very slowly)
+    private var cachedSkyBgImage: CGImage?
+    private var cachedSkyBgSize: CGSize = .zero
+    private var skyCacheCounter: Int = 0
+    private let skyCacheInterval: Int = 8  // refresh every 8 frames (sky+stars+mountains change very slowly)
     
     // MARK: - Layer-backed drawing
     private var drawingLayer: CALayer!
@@ -203,20 +209,44 @@ import ScreenSaver
         // Calculate environment
         let currentEnv = calculateEnvironment()
         
-        let skyMs = profileSection(profileLayers) {
-            background.drawSky(context: context, bounds: bounds, env: currentEnv)
+        // Sky cache: rebuild every skyCacheInterval frames (sky changes very slowly)
+        let currentSize = CGSize(width: width, height: height)
+        let needsSkyRebuild = (skyCacheCounter % skyCacheInterval == 0)
+            || cachedSkyBgImage == nil
+            || cachedSkyBgSize != currentSize
+        skyCacheCounter += 1
+
+        let skyBgRebuildStart = profileLayers ? CACurrentMediaTime() : 0
+        if needsSkyRebuild {
+            if let offCtx = CGContext(
+                data: nil, width: width, height: height,
+                bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+                space: deviceColorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            ) {
+                offCtx.setShouldAntialias(false)
+                offCtx.interpolationQuality = .none
+                background.drawSky(context: offCtx, bounds: bounds, env: currentEnv)
+                background.drawStars(context: offCtx, bounds: bounds, env: currentEnv)
+                // NOTE: celestial body excluded from cache — drawn every frame for smooth motion
+                background.drawMountains(context: offCtx, bounds: bounds, env: currentEnv)
+                background.drawClouds(context: offCtx, bounds: bounds, env: currentEnv)
+                cachedSkyBgImage = offCtx.makeImage()
+                cachedSkyBgSize = currentSize
+            }
         }
-        let starsMs = profileSection(profileLayers) {
-            background.drawStars(context: context, bounds: bounds, env: currentEnv)
+        // Fast blit of cached sky (~0.05ms vs ~8ms full redraw)
+        if let skyImg = cachedSkyBgImage {
+            context.draw(skyImg, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
         }
+        let skyMs = profileLayers ? (CACurrentMediaTime() - skyBgRebuildStart) * 1000.0 : 0.0
+        let starsMs = 0.0
+        let mountainsMs = 0.0
+        let cloudsMs = 0.0
+
+        // Celestial body drawn EVERY frame for smooth sun/moon movement (not cached)
         let celestialMs = profileSection(profileLayers) {
             background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
-        }
-        let mountainsMs = profileSection(profileLayers) {
-            background.drawMountains(context: context, bounds: bounds, env: currentEnv)
-        }
-        let cloudsMs = profileSection(profileLayers) {
-            background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         }
 
         let beachBackgroundMs = profileSection(profileLayers) {

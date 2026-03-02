@@ -202,9 +202,9 @@ class MIScenery {
         for i in (0..<seaCreatures.count).reversed() {
             seaCreatures[i].x += seaCreatures[i].speed * seaCreatures[i].direction * deltaTime
             seaCreatures[i].age += deltaTime
-            seaCreatures[i].phase += deltaTime * 2.4
+            // No phase zigzag: creatures move in smooth straight lines
 
-            if seaCreatures[i].age > seaCreatures[i].lifetime || seaCreatures[i].x < -120 || seaCreatures[i].x > bounds.width + 120 {
+            if seaCreatures[i].age > seaCreatures[i].lifetime || seaCreatures[i].x < -180 || seaCreatures[i].x > bounds.width + 180 {
                 seaCreatures.remove(at: i)
             }
         }
@@ -315,20 +315,25 @@ class MIScenery {
     
     func drawSea(context: CGContext, bounds: CGRect, env: MIPalette.Environment) {
         let horizonY = bounds.height * 0.35
-        
+
         let colors = [env.seaTop.nsColor.cgColor, env.seaBottom.nsColor.cgColor] as CFArray
         let locations: [CGFloat] = [0.0, 1.0]
         if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: locations) {
             context.drawLinearGradient(gradient, start: CGPoint(x: 0, y: horizonY), end: CGPoint(x: 0, y: 0), options: [])
         }
-        
-        context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.4).cgColor)
+
         let tileSize: CGFloat = pixelSize * 2
         let waveTime = time * 1.5
         let wave2Delta: CGFloat = tileSize * 0.02
         let wave2SinDelta = sin(wave2Delta)
         let wave2CosDelta = cos(wave2Delta)
-        
+
+        // Pre-cache constant colors; batch bright crests into a single fill path
+        let foamNS = env.seaFoam.nsColor
+        let brightCrestColor = foamNS.withAlphaComponent(0.8).cgColor
+        let brightCrests = CGMutablePath()
+        var lastFoamAlpha: CGFloat = -1
+
         for y in stride(from: CGFloat(0), through: horizonY, by: tileSize) {
             let rowFactor = y / horizonY
             let freq = 0.05 + rowFactor * 0.1
@@ -339,23 +344,26 @@ class MIScenery {
 
             var wave1Sin = sin(waveTime * speed)
             var wave1Cos = cos(waveTime * speed)
-
             var wave2Sin = sin(y * freq * 2.0 - waveTime)
             var wave2Cos = cos(y * freq * 2.0 - waveTime)
-            
-            for x in stride(from: 0, through: bounds.width, by: tileSize) {
+
+            for x in stride(from: CGFloat(0), through: bounds.width, by: tileSize) {
                 let wave1 = wave1Sin
                 let wave2 = wave2Cos
                 let combinedWave = wave1 + wave2
-                
+
                 if combinedWave > 1.0 {
                     let intensity = min(1.0, (combinedWave - 1.0) * 1.5)
-                    context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.4 * intensity).cgColor)
+                    let alpha = 0.4 * intensity
+                    // Skip setFillColor when alpha barely changed (reduces CG state changes)
+                    if abs(alpha - lastFoamAlpha) > 0.012 {
+                        context.setFillColor(foamNS.withAlphaComponent(alpha).cgColor)
+                        lastFoamAlpha = alpha
+                    }
                     context.fill(CGRect(x: x, y: y, width: pixelSize, height: pixelSize))
-                    
-                    if combinedWave > 1.6 && Int((x+y)) % 7 == 0 {
-                        context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.8).cgColor)
-                        context.fill(CGRect(x: x + pixelSize, y: y, width: pixelSize, height: pixelSize))
+
+                    if combinedWave > 1.6 && Int((x + y)) % 7 == 0 {
+                        brightCrests.addRect(CGRect(x: x + pixelSize, y: y, width: pixelSize, height: pixelSize))
                     }
                 }
 
@@ -370,18 +378,30 @@ class MIScenery {
                 wave2Sin = nextWave2Sin
             }
         }
+
+        // One fill for all bright-crest pixels (constant color)
+        if !brightCrests.isEmpty {
+            context.setFillColor(brightCrestColor)
+            context.addPath(brightCrests)
+            context.fillPath()
+        }
     }
 
     private func spawnSeaCreature() {
         let horizonY = bounds.height * 0.35
+        let dir: CGFloat = Bool.random() ? 1.0 : -1.0
+        // Enter from the side off-screen in the direction of travel
+        let startX = dir > 0 ? -100.0 : bounds.width + 100.0
+        // Random depth in the sea area (independent from spawn timing)
+        let surfaceY = horizonY * CGFloat.random(in: 0.28...0.72)
         seaCreatures.append(MISeaCreature(
-            x: CGFloat.random(in: -40...(bounds.width + 40)),
-            y: CGFloat.random(in: horizonY * 0.22...horizonY * 0.78),
-            speed: CGFloat.random(in: 18...34),
-            direction: Bool.random() ? 1.0 : -1.0,
-            phase: CGFloat.random(in: 0...6.28),
+            x: startX,
+            y: surfaceY,
+            speed: CGFloat.random(in: 22...38),
+            direction: dir,
+            phase: 0,
             age: 0,
-            lifetime: CGFloat.random(in: 7...14),
+            lifetime: CGFloat.random(in: 9...16),
             size: CGFloat.random(in: 0.8...1.35)
         ))
     }
@@ -390,17 +410,24 @@ class MIScenery {
         let horizonY = bounds.height * 0.35
         let bodyColor = env.seaTop.nsColor.blended(withFraction: 0.55, of: .black) ?? env.seaTop.nsColor
         let finColor = env.seaFoam.nsColor.blended(withFraction: 0.52, of: env.seaTop.nsColor) ?? env.seaFoam.nsColor
+        let submergeDist = pixelSize * 10  // depth below surface when fully submerged
 
         for creature in seaCreatures {
-            let lifeT = max(0, min(1, 1 - (creature.age / creature.lifetime)))
-            let bob = sin(creature.phase) * pixelSize * 2.0
+            let progress = min(1.0, creature.age / creature.lifetime)  // 0 → 1
+            let emergeT = sin(progress * .pi)  // 0 → peak → 0 (smooth parabola)
+            guard emergeT > 0.04 else { continue }  // skip if nearly fully submerged
+
+            // Vertical: creature rises from below, crests at surface, then descends
+            let drawY = creature.y - submergeDist * (1.0 - emergeT)
+            let y = min(horizonY - pixelSize * 2, max(pixelSize * 3, drawY))
+
             let x = creature.x
-            let y = min(horizonY - pixelSize * 3, max(pixelSize * 4, creature.y + bob))
             let dir = creature.direction
             let bodyW = pixelSize * 12.0 * creature.size
             let bodyH = pixelSize * 2.6 * creature.size
             let finW = pixelSize * 4.6 * creature.size
-            let finH = pixelSize * 5.4 * creature.size
+            // Fin height scales with emergence: fin rises as creature surfaces
+            let finH = pixelSize * 5.4 * creature.size * emergeT
             let bodyRect = CGRect(x: x - bodyW * 0.5, y: y - bodyH * 0.45, width: bodyW, height: bodyH)
 
             let finPath = CGMutablePath()
@@ -417,8 +444,8 @@ class MIScenery {
             tailPath.closeSubpath()
 
             context.saveGState()
-            context.setAlpha(0.45 + lifeT * 0.4)
-            context.setFillColor(bodyColor.withAlphaComponent(0.34 + lifeT * 0.2).cgColor)
+            context.setAlpha(emergeT * 0.88)  // fade in/out with emergence
+            context.setFillColor(bodyColor.withAlphaComponent(0.54).cgColor)
             context.fillEllipse(in: bodyRect)
 
             context.setFillColor(finColor.cgColor)
@@ -427,7 +454,7 @@ class MIScenery {
             context.addPath(tailPath)
             context.fillPath()
 
-            context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.25 + lifeT * 0.15).cgColor)
+            context.setFillColor(env.seaFoam.nsColor.withAlphaComponent(0.28).cgColor)
             context.fill(CGRect(x: x - bodyW * 0.35, y: y - pixelSize, width: bodyW * 0.7, height: pixelSize))
             context.restoreGState()
         }
