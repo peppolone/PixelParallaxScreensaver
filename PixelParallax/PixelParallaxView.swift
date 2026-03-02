@@ -226,11 +226,9 @@ import ScreenSaver
             ) {
                 offCtx.setShouldAntialias(false)
                 offCtx.interpolationQuality = .none
+                // Cache sky gradient + stars only (most stable elements)
                 background.drawSky(context: offCtx, bounds: bounds, env: currentEnv)
                 background.drawStars(context: offCtx, bounds: bounds, env: currentEnv)
-                // NOTE: celestial body excluded from cache — drawn every frame for smooth motion
-                background.drawMountains(context: offCtx, bounds: bounds, env: currentEnv)
-                background.drawClouds(context: offCtx, bounds: bounds, env: currentEnv)
                 cachedSkyBgImage = offCtx.makeImage()
                 cachedSkyBgSize = currentSize
             }
@@ -241,12 +239,16 @@ import ScreenSaver
         }
         let skyMs = profileLayers ? (CACurrentMediaTime() - skyBgRebuildStart) * 1000.0 : 0.0
         let starsMs = 0.0
-        let mountainsMs = 0.0
-        let cloudsMs = 0.0
 
-        // Celestial body drawn EVERY frame for smooth sun/moon movement (not cached)
+        // Correct layer order: celestial (sun/moon) drawn BEHIND mountains
         let celestialMs = profileSection(profileLayers) {
             background.drawCelestialBody(context: context, bounds: bounds, env: currentEnv, cycleTime: CGFloat(cycleTime))
+        }
+        let mountainsMs = profileSection(profileLayers) {
+            background.drawMountains(context: context, bounds: bounds, env: currentEnv)
+        }
+        let cloudsMs = profileSection(profileLayers) {
+            background.drawClouds(context: context, bounds: bounds, env: currentEnv)
         }
 
         let beachBackgroundMs = profileSection(profileLayers) {
